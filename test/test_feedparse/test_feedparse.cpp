@@ -86,6 +86,21 @@ void test_cap_and_long_title() {
   TEST_ASSERT_EQUAL(31, strlen(out[0].title));
 }
 
+void test_fetch_due_schedule() {
+  constexpr uint32_t kRefresh = 900000;
+  TEST_ASSERT_TRUE(feedFetchDue(false, 0, false, false, kRefresh));            // never tried
+  TEST_ASSERT_FALSE(feedFetchDue(true, kRefresh - 1, true, true, kRefresh));   // good and current: wait
+  TEST_ASSERT_TRUE(feedFetchDue(true, kRefresh, true, true, kRefresh));
+  TEST_ASSERT_FALSE(feedFetchDue(true, kFeedRetryMs - 1, false, true, kRefresh));  // failed: retry soon
+  TEST_ASSERT_TRUE(feedFetchDue(true, kFeedRetryMs, false, true, kRefresh));
+}
+
+void test_fetch_due_after_midnight_does_not_wait_full_refresh() {
+  constexpr uint32_t kRefresh = 900000;
+  TEST_ASSERT_TRUE(feedFetchDue(true, kFeedRetryMs, true, false, kRefresh));   // stored events are yesterday's
+  TEST_ASSERT_FALSE(feedFetchDue(true, kFeedRetryMs - 1, true, false, kRefresh));  // but no hammering
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_parse_clock_valid_and_invalid);
@@ -95,5 +110,7 @@ int main() {
   RUN_TEST(test_malformed_json_rejected);
   RUN_TEST(test_malformed_events_skipped);
   RUN_TEST(test_cap_and_long_title);
+  RUN_TEST(test_fetch_due_schedule);
+  RUN_TEST(test_fetch_due_after_midnight_does_not_wait_full_refresh);
   return UNITY_END();
 }

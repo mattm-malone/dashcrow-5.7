@@ -199,6 +199,19 @@ void test_offset_clamped_to_week() {
   TEST_ASSERT_EQUAL(-7, a.dayOffset());
 }
 
+void test_timer_finishing_off_page_switches_to_timer_page() {
+  App a;
+  toTimerPage(a, 0, mk(1, 9, 0));
+  a.onInput(press(Button::Click), 0, mk(1, 9, 0));   // start 25 min
+  a.onInput(press(Button::Menu), 1000, mk(1, 9, 0));  // Timer -> Clock
+  TEST_ASSERT_TRUE(a.page() == Page::Clock);
+  a.tick(24u * 60000u, mk(1, 9, 24));
+  TEST_ASSERT_TRUE(a.page() == Page::Clock);  // still running
+  a.tick(25u * 60000u, mk(1, 9, 25));
+  TEST_ASSERT_TRUE(a.timer().state() == State::Done);
+  TEST_ASSERT_TRUE(a.page() == Page::Timer);  // finished timer must be seen
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_boots_on_clock);
@@ -220,5 +233,6 @@ int main() {
   RUN_TEST(test_timeline_fast_turns_still_step_one_day);
   RUN_TEST(test_timeline_click_resets_offset);
   RUN_TEST(test_offset_clamped_to_week);
+  RUN_TEST(test_timer_finishing_off_page_switches_to_timer_page);
   return UNITY_END();
 }

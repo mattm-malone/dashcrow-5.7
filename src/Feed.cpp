@@ -5,9 +5,9 @@
 #include "FeedParse.h"
 
 namespace {
-constexpr uint32_t kRetryMs = 60000;
+constexpr int kMaxBodyBytes = 8192;  // a day of events is well under 2 KB
 constexpr uint32_t kStaleAfterMs = 60UL * 60UL * 1000UL;
-constexpr uint16_t kTimeoutMs = 5000;
+constexpr uint16_t kTimeoutMs = 2000;  // fetches block the UI, so keep them short
 }  // namespace
 
 void Feed::begin(const char *url, uint32_t refreshMs) {
@@ -17,17 +17,19 @@ void Feed::begin(const char *url, uint32_t refreshMs) {
 
 void Feed::poll(uint32_t nowMs, const char *todayIso) {
   if (!enabled() || !todayIso || WiFi.status() != WL_CONNECTED) return;
-  const uint32_t wait = lastOk_ ? refreshMs_ : kRetryMs;
-  if (attempted_ && uint32_t(nowMs - lastAttemptMs_) < wait) return;
+  const bool dateCurrent = strcmp(date_, todayIso) == 0;  // false after midnight: refetch without waiting
+  if (!feedFetchDue(attempted_, nowMs - lastAttemptMs_, lastOk_, dateCurrent, refreshMs_)) return;
   attempted_ = true;
   lastAttemptMs_ = nowMs;
   lastOk_ = false;
 
   HTTPClient http;
   http.setTimeout(kTimeoutMs);
+  http.setConnectTimeout(kTimeoutMs);
   if (!http.begin(url_)) return;
   const int status = http.GET();
-  if (status == HTTP_CODE_OK) {
+  const int size = http.getSize();  // -1 when unknown (chunked); refuse that and anything oversized
+  if (status == HTTP_CODE_OK && size > 0 && size <= kMaxBodyBytes) {
     const String body = http.getString();
     DayEvent parsed[kMax];
     size_t n = 0;

@@ -41,3 +41,9 @@ bool parseFeedJson(const char *json, const char *today, DayEvent *out, size_t ca
   }
   return true;
 }
+
+bool feedFetchDue(bool attempted, uint32_t elapsedMs, bool lastOk, bool dateCurrent, uint32_t refreshMs) {
+  if (!attempted) return true;
+  const uint32_t wait = (lastOk && dateCurrent) ? refreshMs : kFeedRetryMs;
+  return elapsedMs >= wait;
+}

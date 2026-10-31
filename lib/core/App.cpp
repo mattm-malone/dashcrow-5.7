@@ -52,6 +52,9 @@ void App::onInput(const InputEvent &ev, uint32_t nowMs, const LocalTime &now) {
 }
 
 void App::tick(uint32_t nowMs, const LocalTime &now) {
+  const bool wasRunning = timer_.state() == TimerModel::State::Running;
   timer_.tick(nowMs);
+  // The device has no buzzer: a timer that finishes while another page is showing must be seen.
+  if (wasRunning && timer_.state() == TimerModel::State::Done) page_ = Page::Timer;
   if (!overlay_ && standup_.due(now)) overlay_ = true;
 }
