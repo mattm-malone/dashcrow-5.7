@@ -10,7 +10,7 @@ Measured with `pio run -e diag -t upload`; the board logs to serial at 115200.
 Consequences:
 - Updates block the main loop for the duration, so a press shorter than the refresh can be missed unless it is latched (see Task 6 notes).
 - Timer cadence: digits at most once per minute, bar every few seconds, last minute once per second at most (1.3 s refresh floor).
-- Ghosting after repeated partial refreshes has not been judged yet (needs eyes on the panel); `kPartialsBeforeFull` is still the plan's initial 30.
+- Ghosting after repeated partial refreshes has not been judged yet (needs eyes on the panel); `kPartialsBeforeFull` is now 500 (no ghosting seen on the panel; the full refresh was disruptive).
 
 ## After optimisation (hardware SPI + bulk transfer + direct pixel pack, 2026-10-31)
 

@@ -1,4 +1,5 @@
 #include "Inputs.h"
+#include "KeyRepeat.h"
 
 namespace {
 
@@ -27,6 +28,10 @@ volatile uint32_t gAt[kQueue];
 volatile uint8_t gHead = 0, gTail = 0;
 volatile uint32_t gLastEdgeMs[kKeys];
 
+// Hold-to-repeat for the rotary up/down switches (key indices 3 and 4).
+constexpr int kFirstRepeatKey = 3;
+KeyRepeat gRepeat[2];
+
 void IRAM_ATTR onEdge(void *arg) {
   const int i = int(intptr_t(arg)) - 1;  // arg is index + 1: the core treats a null arg as "no argument"
   const uint32_t now = millis();
@@ -53,7 +58,7 @@ void Inputs::begin() {
   }
 }
 
-bool Inputs::poll(InputEvent &out, uint32_t) {
+bool Inputs::poll(InputEvent &out, uint32_t nowMs) {
   noInterrupts();
   const bool have = gTail != gHead;
   uint8_t key = 0;
@@ -64,8 +69,26 @@ bool Inputs::poll(InputEvent &out, uint32_t) {
     gTail = (gTail + 1) % kQueue;
   }
   interrupts();
-  if (!have) return false;
-  out = kDefs[key].event;
-  out.ms = at;
-  return true;
+  if (have) {
+    if (key >= kFirstRepeatKey) gRepeat[key - kFirstRepeatKey].press(at);
+    out = kDefs[key].event;
+    out.ms = at;
+    return true;
+  }
+
+  // A held up/down switch repeats until it is released.
+  for (int r = 0; r < 2; r++) {
+    const int k = kFirstRepeatKey + r;
+    if (!gRepeat[r].active()) continue;
+    if (digitalRead(kDefs[k].pin) != LOW) {
+      gRepeat[r].release();
+      continue;
+    }
+    if (gRepeat[r].next(nowMs, at)) {
+      out = kDefs[k].event;
+      out.ms = at;
+      return true;
+    }
+  }
+  return false;
 }
