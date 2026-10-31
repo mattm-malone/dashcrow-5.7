@@ -130,6 +130,17 @@ void test_turn_on_timer_page_changes_minutes() {
   TEST_ASSERT_EQUAL(25, a.timer().setMinutes());
 }
 
+void test_fast_presses_step_one_minute_each() {
+  App a;
+  toTimerPage(a, 0, mk(1, 9, 0));
+  a.onInput(turn(1), 1000, mk(1, 9, 0));
+  a.onInput(turn(1), 1010, mk(1, 9, 0));  // 10 ms later: still one minute, no acceleration
+  a.onInput(turn(1), 1020, mk(1, 9, 0));
+  TEST_ASSERT_EQUAL(28, a.timer().setMinutes());
+  a.onInput(turn(-1), 1030, mk(1, 9, 0));
+  TEST_ASSERT_EQUAL(27, a.timer().setMinutes());
+}
+
 void test_click_on_timer_page_starts() {
   App a;
   toTimerPage(a, 0, mk(1, 9, 0));
@@ -225,6 +236,7 @@ int main() {
   RUN_TEST(test_done_state_survives_overlay);
   RUN_TEST(test_dismiss_acknowledges_scheduler);
   RUN_TEST(test_turn_on_timer_page_changes_minutes);
+  RUN_TEST(test_fast_presses_step_one_minute_each);
   RUN_TEST(test_click_on_timer_page_starts);
   RUN_TEST(test_exit_cancels_timer);
   RUN_TEST(test_timer_inputs_ignored_off_timer_page);

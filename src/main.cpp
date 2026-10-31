@@ -45,7 +45,9 @@ static void runTimingDiag() {
   for (int i = 2; i <= 11; i++) {
     renderClock(canvas, {true, 10, uint8_t(i), 1, 30, 10});
     panel.show(canvas, RefreshKind::Partial);
-    Serial.printf("partial %d: %u ms\n", i, panel.lastRefreshMs());
+    Serial.printf("partial %d: %lu ms (copy %lu, send %lu, waveform %lu, old %lu)\n", i, (unsigned long)panel.lastRefreshMs(),
+                  (unsigned long)panel.copyMs(), (unsigned long)panel.sendMs(), (unsigned long)panel.updateMs(),
+                  (unsigned long)panel.oldMs());
   }
   Serial.println("diag done");
 }
@@ -181,7 +183,9 @@ void loop() {
     if (kind != RefreshKind::None) {
       render(t);
       panel.show(canvas, kind);
-      Serial.printf("refresh %s %lu ms\n", kind == RefreshKind::Full ? "full" : "partial", (unsigned long)panel.lastRefreshMs());
+      Serial.printf("refresh %s %lu ms (copy %lu, send %lu, waveform %lu, old %lu)\n", kind == RefreshKind::Full ? "full" : "partial",
+                    (unsigned long)panel.lastRefreshMs(), (unsigned long)panel.copyMs(), (unsigned long)panel.sendMs(),
+                    (unsigned long)panel.updateMs(), (unsigned long)panel.oldMs());
     }
   }
   delay(10);

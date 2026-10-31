@@ -39,5 +39,6 @@ void EPD_GPIOInit(void);
 void EPD_WR_Bus(uint8_t dat);
 void EPD_WR_REG(uint8_t reg);
 void EPD_WR_DATA8(uint8_t dat);
+void EPD_WR_DATA_BUF(const uint8_t *buf, size_t n);  // one CS-low burst, DC high
 
 #endif

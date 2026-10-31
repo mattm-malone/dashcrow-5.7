@@ -1,5 +1,4 @@
 #pragma once
-#include "Accel.h"
 #include "StandupScheduler.h"
 #include "TimerModel.h"
 #include "Types.h"
@@ -22,5 +21,4 @@ class App {
   int dayOffset_ = 0;
   TimerModel timer_;
   StandupScheduler standup_;
-  RotaryAccel accel_;
 };

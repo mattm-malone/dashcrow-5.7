@@ -42,7 +42,7 @@ void App::onInput(const InputEvent &ev, uint32_t nowMs, const LocalTime &now) {
 
   if (page_ == Page::Timer) {
     if (ev.type == InputEvent::Type::Turn) {
-      timer_.turn(accel_.step(ev.dir, nowMs));
+      timer_.turn(ev.dir);
     } else if (ev.button == Button::Click) {
       timer_.click(nowMs);
     } else if (ev.button == Button::Exit) {
