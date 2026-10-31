@@ -87,24 +87,6 @@ static void renderTimelinePage(const LocalTime &t) {
   v.dayOffset = app.dayOffset();
   v.feedStale = feed.enabled() && feed.stale(millis());
 
-  // When nothing is left today the NEXT line names the next meeting in the coming two weeks.
-  if (t.valid && app.dayOffset() == 0) {
-    constexpr int kLookAheadDays = 14;
-    DayDate days[kLookAheadDays];
-    for (int k = 0; k < kLookAheadDays; k++) {
-      const DayInfo di = dayInfoFor(time(nullptr), k + 1);
-      days[k] = {di.year, di.month, di.mday, di.wday};
-    }
-    DayEvent first;
-    const int idx = nextMeetingDay(MEETINGS, sizeof MEETINGS / sizeof MEETINGS[0], days, kLookAheadDays, &first);
-    if (idx >= 0) {
-      v.upcoming.valid = true;
-      strncpy(v.upcoming.title, first.title, sizeof v.upcoming.title - 1);
-      v.upcoming.daysAhead = uint8_t(idx + 1);
-      v.upcoming.wday = days[idx].wday;
-      v.upcoming.startMin = first.startMin;
-    }
-  }
   renderTimeline(canvas, v);
 }
 

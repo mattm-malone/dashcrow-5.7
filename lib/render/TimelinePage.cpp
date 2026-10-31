@@ -59,8 +59,8 @@ void drawNamedMeeting(Canvas &c, const char *label, const char *name, const char
   drawTextRight(c, &FreeSansBold12pt7b, kW - 16, baseline, when);
 }
 
-// Names the meeting that is on now or next. When nothing is left today it names the next meeting on a later day;
-// with no meeting to show it draws nothing, so an empty day stays uncluttered.
+// Names the meeting that is on now or next today. With nothing left today (or none at all) it draws nothing;
+// meetings on later days are deliberately not named here.
 void drawNextLine(Canvas &c, const TimelineView &v, bool live) {
   if (!live) {
     if (v.n == 0) return;
@@ -79,11 +79,6 @@ void drawNextLine(Canvas &c, const TimelineView &v, bool live) {
     if (next.inProgress) snprintf(when, sizeof when, "until %s", b);
     else snprintf(when, sizeof when, "in %d min  %s", next.minutesUntil, a);
     drawNamedMeeting(c, next.inProgress ? "NOW" : "NEXT", e.title, when);
-  } else if (v.upcoming.valid) {
-    fmtTime(a, sizeof a, v.upcoming.startMin);
-    if (v.upcoming.daysAhead == 1) snprintf(when, sizeof when, "Tomorrow  %s", a);
-    else snprintf(when, sizeof when, "%s  %s", kDays[v.upcoming.wday % 7], a);
-    drawNamedMeeting(c, "NEXT", v.upcoming.title, when);
   }
 }
 
