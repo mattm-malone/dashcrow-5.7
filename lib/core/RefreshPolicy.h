@@ -5,8 +5,8 @@ enum class RefreshKind { None, Partial, Full };
 
 constexpr int kPartialsBeforeFull = 30;
 
-// layoutKey changes on page or overlay change (Full); contentKey changes when the picture
-// should update in place (Partial). The first call is always Full.
+// Any change to layoutKey (page/overlay) or contentKey is a Partial update; every
+// kPartialsBeforeFull-th update, and the first call, is Full to clear ghosting.
 class RefreshPolicy {
  public:
   RefreshKind next(uint32_t contentKey, uint32_t layoutKey);

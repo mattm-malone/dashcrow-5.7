@@ -16,4 +16,5 @@ struct InputEvent {
   enum class Type { Press, Turn } type;
   Button button;  // Press only
   int dir;        // Turn only: +1 up, -1 down
+  uint32_t ms;    // when the input happened (millis); 0 if unknown
 };

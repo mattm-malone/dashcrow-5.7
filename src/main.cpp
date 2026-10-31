@@ -168,7 +168,8 @@ void loop() {
   while (inputs.poll(ev, ms)) {
     Serial.printf("input: %s %d\n", ev.type == InputEvent::Type::Press ? "press" : "turn",
                   ev.type == InputEvent::Type::Press ? int(ev.button) : ev.dir);
-    app.onInput(ev, ms, t);
+    // Use the time the press happened, not now: presses queue up during slow refreshes.
+    app.onInput(ev, ev.ms, t);
     lastInputMs = ms;
   }
   app.tick(ms, t);
@@ -180,7 +181,6 @@ void loop() {
     if (kind != RefreshKind::None) {
       render(t);
       panel.show(canvas, kind);
-      panel.setClearPass(false);  // only the boot refresh pays for the 6 s clear pass; later fulls take ~2.6 s
       Serial.printf("refresh %s %lu ms\n", kind == RefreshKind::Full ? "full" : "partial", (unsigned long)panel.lastRefreshMs());
     }
   }

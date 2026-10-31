@@ -8,11 +8,12 @@ RefreshKind RefreshPolicy::next(uint32_t contentKey, uint32_t layoutKey) {
   layout_ = layoutKey;
   content_ = contentKey;
 
-  if (first || layoutChanged) {
+  if (first) {
     partials_ = 0;
     return RefreshKind::Full;
   }
-  if (!contentChanged) return RefreshKind::None;
+  // Page and overlay changes are partial too (fast); the periodic full refresh clears ghosting.
+  if (!layoutChanged && !contentChanged) return RefreshKind::None;
   if (partials_ >= kPartialsBeforeFull) {
     partials_ = 0;
     return RefreshKind::Full;

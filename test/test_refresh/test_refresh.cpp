@@ -21,10 +21,19 @@ void test_content_change_is_partial() {
   TEST_ASSERT_TRUE(p.next(2, 1) == RefreshKind::Partial);
 }
 
-void test_layout_change_is_full() {
+// Page and overlay changes are partial updates: fast, and the periodic full refresh clears ghosting.
+void test_layout_change_is_partial() {
   RefreshPolicy p;
   p.next(1, 1);
-  TEST_ASSERT_TRUE(p.next(1, 2) == RefreshKind::Full);
+  TEST_ASSERT_TRUE(p.next(1, 2) == RefreshKind::Partial);
+}
+
+void test_layout_changes_count_toward_periodic_full() {
+  RefreshPolicy p;
+  p.next(0, 0);
+  for (int i = 1; i <= kPartialsBeforeFull; i++)
+    TEST_ASSERT_TRUE(p.next(0, i) == RefreshKind::Partial);
+  TEST_ASSERT_TRUE(p.next(0, kPartialsBeforeFull + 1) == RefreshKind::Full);
 }
 
 void test_full_refresh_after_many_partials_then_resets() {
@@ -41,7 +50,8 @@ int main() {
   RUN_TEST(test_unchanged_keys_none);
   RUN_TEST(test_first_call_is_full);
   RUN_TEST(test_content_change_is_partial);
-  RUN_TEST(test_layout_change_is_full);
+  RUN_TEST(test_layout_change_is_partial);
+  RUN_TEST(test_layout_changes_count_toward_periodic_full);
   RUN_TEST(test_full_refresh_after_many_partials_then_resets);
   return UNITY_END();
 }
