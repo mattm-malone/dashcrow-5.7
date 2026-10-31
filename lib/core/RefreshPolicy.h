@@ -4,8 +4,8 @@
 enum class RefreshKind { None, Partial, Full };
 
 // A full refresh flashes the whole panel, so it is rare: the panel showed no ghosting after hundreds of
-// partial updates (the clock page does 1440 a day; the hourglass timer redraws twice a second, 3000 in 25 min).
-constexpr int kPartialsBeforeFull = 8000;
+// partial updates (the clock page does 1440 a day; the hourglass timer redraws every second, 1500 in 25 min).
+constexpr int kPartialsBeforeFull = 4000;
 
 // Any change to layoutKey (page/overlay) or contentKey is a Partial update; every
 // kPartialsBeforeFull-th update, and the first call, is Full to clear ghosting.

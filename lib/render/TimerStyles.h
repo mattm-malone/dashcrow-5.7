@@ -5,6 +5,11 @@
 // Every style draws below the shared header (label + end time) and may use the whole canvas otherwise.
 namespace timerstyle {
 
+struct StreamDot {
+  int x, y, r;
+};
+constexpr int kStreamDots = 64;  // capacity of hourglassStream()
+
 // Share of the vessel still full: 1 while setting; in the last minute it is remaining/60 s so the picture
 // matches the seconds shown; otherwise remaining/total.
 float remainingFraction(const TimerView &v, bool lastMinute);
@@ -24,26 +29,23 @@ void drawHourglass(Canvas &c, const TimerView &v, bool lastMinute);
 void drawDisc(Canvas &c, const TimerView &v, bool lastMinute);
 void drawDots(Canvas &c, const TimerView &v, bool lastMinute);
 
-// Halftone hourglass: a framed panel with a dot field at each end and MM:SS between them. Dots drain from the
-// left field (outer edge first filled, thinning toward the centre) and pile up in the right field.
-constexpr int kHgFrameX = 8, kHgFrameY = 46, kHgFrameW = 776, kHgFrameH = 220;
-constexpr int kHgPitch = 13;                    // dot grid pitch
-constexpr int kHgCols = 17, kHgRows = 15;       // grid size of each field
-constexpr int kHgFieldW = kHgCols * kHgPitch;   // 221 px
-constexpr int kHgLeftX = 20;                    // left field starts here
-constexpr int kHgRightX = kW - 20 - kHgFieldW;  // right field starts here
-constexpr int kHgFieldY = kHgFrameY + (kHgFrameH - kHgRows * kHgPitch) / 2;
-constexpr int kHgCenterL = kHgLeftX + kHgFieldW + 8, kHgCenterR = kHgRightX - 8;  // room for the number
-
-// The pouring stream: dots along an arch from the left field, over the number, into the right field.
-struct StreamDot {
-  int x, y, r;
-};
-constexpr int kStreamDots = 64;       // capacity; the real count depends on the arch length
-constexpr float kStreamSpacing = 15.0f;  // px between grains along the arch
-constexpr float kStreamSpeed = 0.8f;  // dot spacings advanced per second
-float streamPhase(uint32_t elapsedMs);  // 0..1: how far the dots have advanced within one spacing
-// Dots of the stream for this frame (none while setting, before the first grain falls, or once it is all poured).
+// Halftone hourglass, drawn sideways: two bulbs of dots meeting at a neck in the middle, behind the MM:SS number.
+// Dots sit on a regular grid and their size depends only on how far they are from the outer edge (biggest at the
+// edge, smallest at the neck). Sand stays anchored at the outer edges: the left bulb empties from the neck side
+// outward while the right bulb fills from its outer edge inward, and a line of grains runs through the neck.
+constexpr int kHgPitch = 13;                   // dot grid pitch
+constexpr int kHgCols = 28;                    // dot columns in each bulb
+constexpr int kHgLeftX = 20;                   // outer edge of the left bulb's dots
+constexpr int kHgRightX = kW - 20;             // outer edge of the right bulb's dots
+constexpr int kHgMid = 158;                    // vertical centre line
+constexpr int kHgCapHalf = 98;                 // half height of a bulb at its outer edge
+constexpr int kHgNeckHalf = 8;                 // half height at the neck
+constexpr int kHgDigitHeight = 100;
+constexpr int kHgCenterL = 246, kHgCenterR = kW - 246;  // room for the MM:SS number
+int hourglassDotRadius(int col);               // col 0 = outer edge ... kHgCols - 1 = beside the neck
+int hourglassRows(int col);                    // rows of dots in that column (the bulb narrows toward the neck)
+void hourglassDotCenter(bool rightBulb, int col, int row, int &x, int &y);
+// Grains running through the neck: along the centre line, in the gap between the two sand edges.
 int hourglassStream(const TimerView &v, StreamDot *out, int cap);
 
 // Time Timer disc geometry.

@@ -52,55 +52,155 @@ static int discArea() {
   return n;
 }
 
-// Ink in the two dot fields of the halftone hourglass.
-static int leftField(Canvas &c) { return inkIn(c, kHgLeftX, kHgFieldY, kHgLeftX + kHgFieldW, kHgFieldY + kHgRows * kHgPitch); }
-static int rightField(Canvas &c) { return inkIn(c, kHgRightX, kHgFieldY, kHgRightX + kHgFieldW, kHgFieldY + kHgRows * kHgPitch); }
-// The last minute inverts the whole canvas; count dots as ink after undoing that.
-static int fieldDots(Canvas &c, int x0, bool inverted) {
+// ---- Halftone hourglass ----
+
+static int leftBulbInk(Canvas &c) { return inkIn(c, kHgLeftX - 14, kHgMid - kHgCapHalf - 8, kHgCenterL, kHgMid + kHgCapHalf + 8); }
+static int rightBulbInk(Canvas &c) { return inkIn(c, kHgCenterR, kHgMid - kHgCapHalf - 8, kHgRightX + 14, kHgMid + kHgCapHalf + 8); }
+
+// The last minute inverts the whole canvas; count ink after undoing that.
+static int invertedInk(Canvas &c, int x0, int y0, int x1, int y1) {
   int n = 0;
-  for (int y = kHgFieldY; y < kHgFieldY + kHgRows * kHgPitch; y++)
-    for (int x = x0; x < x0 + kHgFieldW; x++) n += inverted ? !c.getPixel(x, y) : c.getPixel(x, y);
+  for (int y = y0; y < y1; y++)
+    for (int x = x0; x < x1; x++) n += !c.getPixel(x, y);
   return n;
 }
-static int centerInk(Canvas &c) { return inkIn(c, kHgCenterL, kHgFrameY + 4, kHgCenterR, kHgFrameY + kHgFrameH - 4); }
 
-void test_hourglass_dots_flow_from_left_to_right() {
-  const uint32_t stages[] = {25 * kMin, 18 * kMin, 12 * kMin, 6 * kMin, 2 * kMin};
-  int prevLeft = 1 << 30, prevRight = -1;
-  for (uint32_t r : stages) {
-    Canvas c(kW, kH);
-    renderTimer(c, running(TimerStyle::Hourglass, 25, r));
-    TEST_ASSERT_LESS_THAN(prevLeft, leftField(c));
-    TEST_ASSERT_GREATER_THAN(prevRight, rightField(c));
-    prevLeft = leftField(c);
-    prevRight = rightField(c);
+static int cellInk(Canvas &c, bool right, int col, int row) {
+  int x, y;
+  hourglassDotCenter(right, col, row, x, y);
+  return inkIn(c, x - 6, y - 6, x + 7, y + 7);
+}
+
+void test_dot_size_falls_steadily_from_the_edge_to_the_neck() {
+  TEST_ASSERT_GREATER_OR_EQUAL(5, hourglassDotRadius(0));
+  TEST_ASSERT_LESS_OR_EQUAL(2, hourglassDotRadius(kHgCols - 1));
+  TEST_ASSERT_GREATER_OR_EQUAL(2 * hourglassDotRadius(kHgCols - 1), hourglassDotRadius(0));
+  for (int col = 1; col < kHgCols; col++) TEST_ASSERT_LESS_OR_EQUAL(hourglassDotRadius(col - 1), hourglassDotRadius(col));
+}
+
+void test_the_bulbs_narrow_to_a_single_row_at_the_neck() {
+  TEST_ASSERT_GREATER_OR_EQUAL(13, hourglassRows(0));
+  TEST_ASSERT_EQUAL(1, hourglassRows(kHgCols - 1));
+  for (int col = 1; col < kHgCols; col++) TEST_ASSERT_LESS_OR_EQUAL(hourglassRows(col - 1), hourglassRows(col));
+}
+
+void test_dots_sit_on_a_regular_grid_sized_only_by_column() {
+  Canvas c(kW, kH);
+  renderTimer(c, setting(TimerStyle::Hourglass, 25));  // full left bulb
+  // Within a column every dot is the same size...
+  TEST_ASSERT_GREATER_THAN(0, cellInk(c, false, 3, 4));
+  TEST_ASSERT_EQUAL(cellInk(c, false, 3, 4), cellInk(c, false, 3, 6));
+  TEST_ASSERT_EQUAL(cellInk(c, false, 3, 4), cellInk(c, false, 3, 8));
+  // ...and across columns dots shrink steadily toward the neck (columns kept clear of the number).
+  int prev = 1 << 30;
+  for (int col : {0, 5, 10, 16}) {  // radii 6, 5, 4, 3 px
+    const int ink = cellInk(c, false, col, hourglassRows(col) / 2);
+    TEST_ASSERT_LESS_THAN(prev, ink);
+    prev = ink;
   }
 }
 
-void test_hourglass_fields_are_mirror_images_at_half_time() {
-  Canvas c(kW, kH);
-  renderTimer(c, running(TimerStyle::Hourglass, 25, uint32_t(12.5f * kMin)));
-  TEST_ASSERT_FLOAT_WITHIN(0.1f, 1.0f, float(leftField(c)) / float(rightField(c)));
+void test_hourglass_left_bulb_drains_while_right_bulb_fills() {
+  // Each bulb is only measurable where it is changing (outside the number): the left once the sand has receded
+  // past the middle, the right until its pile has reached the middle. So use different stages for each.
+  int prev = 1 << 30;
+  for (uint32_t r : {12 * kMin, 9 * kMin, 6 * kMin, 3 * kMin, 1 * kMin + 5000}) {
+    Canvas c(kW, kH);
+    renderTimer(c, running(TimerStyle::Hourglass, 25, r));
+    TEST_ASSERT_LESS_THAN(prev, leftBulbInk(c));
+    prev = leftBulbInk(c);
+  }
+  prev = -1;
+  for (uint32_t r : {22 * kMin, 20 * kMin, 18 * kMin, 16 * kMin, 14 * kMin}) {
+    Canvas c(kW, kH);
+    renderTimer(c, running(TimerStyle::Hourglass, 25, r));
+    TEST_ASSERT_GREATER_THAN(prev, rightBulbInk(c));
+    prev = rightBulbInk(c);
+  }
 }
 
-void test_hourglass_start_is_all_left_and_finish_is_all_right() {
-  Canvas start(kW, kH), done(kW, kH);
+void test_hourglass_bulbs_mirror_each_other_at_half_time() {
+  Canvas c(kW, kH);
+  renderTimer(c, running(TimerStyle::Hourglass, 25, uint32_t(12.5f * kMin)));
+  TEST_ASSERT_FLOAT_WITHIN(0.08f, 1.0f, float(leftBulbInk(c)) / float(rightBulbInk(c)));
+}
+
+void test_hourglass_start_is_all_left_and_the_end_is_all_right() {
+  Canvas start(kW, kH), nearEnd(kW, kH);
   renderTimer(start, setting(TimerStyle::Hourglass, 25));
-  renderTimer(done, running(TimerStyle::Hourglass, 25, 1));  // a hair above zero, still counting
-  TEST_ASSERT_EQUAL(0, rightField(start));
-  TEST_ASSERT_GREATER_THAN(3000, leftField(start));
-  // 1 ms left is the last minute (inverted); the last grains of the stream still run through the emptied left field.
-  TEST_ASSERT_LESS_THAN(leftField(start) / 5, fieldDots(done, kHgLeftX, true));
-  TEST_ASSERT_GREATER_THAN(3000, fieldDots(done, kHgRightX, true));
+  renderTimer(nearEnd, running(TimerStyle::Hourglass, 180, 61000));  // a 3-hour timer a minute from done (not yet inverted)
+  // (Every window includes the same glass outline, so compare against that rather than against zero.)
+  TEST_ASSERT_LESS_THAN(leftBulbInk(start) / 3, leftBulbInk(nearEnd));
+  TEST_ASSERT_GREATER_THAN(rightBulbInk(start) + 5000, rightBulbInk(nearEnd));
 }
 
 void test_hourglass_does_not_refill_in_the_last_minute() {
-  // 30 s left of 25 minutes: the dots are almost all on the right; the picture must not be rescaled to the minute.
+  // 30 s left of 25 minutes: the sand is almost all in the right bulb; the picture must not be rescaled to the minute.
   Canvas start(kW, kH), last(kW, kH);
   renderTimer(start, setting(TimerStyle::Hourglass, 25));
   renderTimer(last, running(TimerStyle::Hourglass, 25, 30000));
-  const int inverted = fieldDots(last, kHgLeftX, true);
-  TEST_ASSERT_LESS_THAN(leftField(start) / 10, inverted);
+  TEST_ASSERT_LESS_THAN(leftBulbInk(start) / 3, invertedInk(last, kHgLeftX - 14, kHgMid - kHgCapHalf - 8, kHgCenterL, kHgMid + kHgCapHalf + 8));
+}
+
+void test_the_shape_is_an_hourglass_with_empty_corners_above_and_below_the_neck() {
+  for (uint32_t r : {25 * kMin, 12 * kMin, 2 * kMin}) {
+    Canvas c(kW, kH);
+    renderTimer(c, running(TimerStyle::Hourglass, 25, r));
+    TEST_ASSERT_EQUAL(0, inkIn(c, kHgCenterL + 30, 48, kHgCenterR - 30, kHgMid - kHgDigitHeight / 2 - 8));      // above the neck
+    TEST_ASSERT_EQUAL(0, inkIn(c, kHgCenterL + 30, kHgMid + kHgDigitHeight / 2 + 8, kHgCenterR - 30, kH));     // below it
+  }
+  Canvas full(kW, kH);
+  renderTimer(full, setting(TimerStyle::Hourglass, 25));
+  TEST_ASSERT_GREATER_THAN(1000, inkIn(full, kHgLeftX - 14, kHgMid - kHgCapHalf, kHgLeftX + 30, kHgMid + kHgCapHalf));  // wide at the end
+}
+
+void test_neck_grains_run_along_the_centre_line_between_the_sand_edges() {
+  StreamDot g[kStreamDots];
+  const int n = hourglassStream(running(TimerStyle::Hourglass, 25, 12 * kMin + 30000), g, kStreamDots);  // half way
+  TEST_ASSERT_GREATER_THAN(4, n);
+  for (int i = 0; i < n; i++) {
+    TEST_ASSERT_EQUAL(kHgMid, g[i].y);
+    TEST_ASSERT_GREATER_OR_EQUAL(2, g[i].r);
+    TEST_ASSERT_GREATER_THAN(kHgLeftX + 14 * kHgPitch, g[i].x);   // clear of the sand left in the left bulb (14 columns at half time)
+    TEST_ASSERT_LESS_THAN(kHgRightX - 14 * kHgPitch, g[i].x);     // and of the pile in the right one
+    if (i > 0) TEST_ASSERT_GREATER_THAN(g[i - 1].x, g[i].x);
+  }
+}
+
+void test_neck_grains_exist_only_while_sand_is_pouring() {
+  StreamDot g[kStreamDots];
+  TEST_ASSERT_EQUAL(0, hourglassStream(setting(TimerStyle::Hourglass, 25), g, kStreamDots));
+  TEST_ASSERT_EQUAL(0, hourglassStream(running(TimerStyle::Hourglass, 25, 25 * kMin), g, kStreamDots));  // not started
+  TEST_ASSERT_EQUAL(0, hourglassStream(running(TimerStyle::Hourglass, 25, 0), g, kStreamDots));           // all poured
+  TEST_ASSERT_EQUAL(0, hourglassStream(running(TimerStyle::Bar, 25, 12 * kMin), g, kStreamDots));         // other styles
+}
+
+void test_neck_grains_move_one_column_per_second() {
+  StreamDot a[kStreamDots], b[kStreamDots];
+  const uint32_t t = 12 * kMin + 30000;
+  const int na = hourglassStream(running(TimerStyle::Hourglass, 25, t), a, kStreamDots);
+  const int nb = hourglassStream(running(TimerStyle::Hourglass, 25, t - 1000), b, kStreamDots);  // one second later
+  TEST_ASSERT_GREATER_THAN(2, na);
+  TEST_ASSERT_GREATER_THAN(2, nb);
+  int neckLeft, neckRight, y;
+  hourglassDotCenter(false, kHgCols - 1, 0, neckLeft, y);
+  hourglassDotCenter(true, kHgCols - 1, 0, neckRight, y);
+  for (int i = 0; i < na; i++) {
+    // Each grain advances to the next column on the right; one crossing the neck jumps from the left bulb's last
+    // column to the right bulb's.
+    const int expected = a[i].x == neckLeft ? neckRight : a[i].x + kHgPitch;
+    bool found = false;
+    for (int j = 0; j < nb; j++) found |= b[j].x == expected;
+    if (expected < kHgRightX - 14 * kHgPitch) TEST_ASSERT_TRUE_MESSAGE(found, "a grain did not advance one column");
+  }
+}
+
+void test_neck_grains_freeze_when_time_stops() {
+  StreamDot a[kStreamDots], b[kStreamDots];
+  const int na = hourglassStream(running(TimerStyle::Hourglass, 25, 10 * kMin), a, kStreamDots);
+  const int nb = hourglassStream(running(TimerStyle::Hourglass, 25, 10 * kMin), b, kStreamDots);
+  TEST_ASSERT_EQUAL(na, nb);
+  for (int i = 0; i < na; i++) TEST_ASSERT_EQUAL(a[i].x, b[i].x);
 }
 
 void test_hourglass_number_is_minutes_and_seconds() {
@@ -109,7 +209,7 @@ void test_hourglass_number_is_minutes_and_seconds() {
   renderTimer(b, running(TimerStyle::Hourglass, 25, 12 * kMin + 4000));  // one second later
   renderTimer(same, running(TimerStyle::Hourglass, 25, 12 * kMin + 5000));
   bool differs = false, identical = true;
-  for (int y = kHgFrameY; y < kHgFrameY + kHgFrameH; y++)
+  for (int y = kHgMid - kHgDigitHeight / 2; y < kHgMid + kHgDigitHeight / 2; y++)
     for (int x = kHgCenterL; x < kHgCenterR; x++) {
       if (a.getPixel(x, y) != b.getPixel(x, y)) differs = true;
       if (a.getPixel(x, y) != same.getPixel(x, y)) identical = false;
@@ -118,80 +218,10 @@ void test_hourglass_number_is_minutes_and_seconds() {
   TEST_ASSERT_TRUE(identical);  // and rendering is deterministic
 }
 
-void test_hourglass_number_fits_for_three_digit_minutes() {
+void test_hourglass_three_digit_minutes_still_render_in_the_middle() {
   Canvas c(kW, kH);
   renderTimer(c, running(TimerStyle::Hourglass, 180, 125 * kMin));
-  TEST_ASSERT_GREATER_THAN(500, centerInk(c));
-  // Nothing from the number leaks into the dot fields' gutters or the frame.
-  // (The pouring stream passes above the number, so look only at the rows the digits can occupy.)
-  const int numberTop = kHgFrameY + (kHgFrameH - 100) / 2;
-  TEST_ASSERT_EQUAL(0, inkIn(c, kHgCenterL - 6, numberTop, kHgCenterL - 1, kHgFrameY + kHgFrameH - 4));
-  TEST_ASSERT_EQUAL(0, inkIn(c, kHgCenterR + 1, numberTop, kHgCenterR + 6, kHgFrameY + kHgFrameH - 4));
-}
-
-void test_stream_exists_only_while_sand_is_pouring() {
-  StreamDot dots[kStreamDots];
-  TEST_ASSERT_EQUAL(0, hourglassStream(setting(TimerStyle::Hourglass, 25), dots, kStreamDots));
-  TEST_ASSERT_EQUAL(0, hourglassStream(running(TimerStyle::Hourglass, 25, 0), dots, kStreamDots));   // all poured
-  TEST_ASSERT_EQUAL(0, hourglassStream(running(TimerStyle::Hourglass, 25, 25 * kMin), dots, kStreamDots));  // not started
-  TEST_ASSERT_GREATER_THAN(10, hourglassStream(running(TimerStyle::Hourglass, 25, 12 * kMin), dots, kStreamDots));
-  TEST_ASSERT_EQUAL(0, hourglassStream(running(TimerStyle::Bar, 25, 12 * kMin), dots, kStreamDots));  // only this style
-}
-
-void test_stream_arches_over_the_number_from_the_left_field_to_the_right() {
-  StreamDot dots[kStreamDots];
-  const int n = hourglassStream(running(TimerStyle::Hourglass, 25, 12 * kMin), dots, kStreamDots);
-  const int numberTop = kHgFrameY + (kHgFrameH - 100) / 2;  // the number is at most 100 px tall, centred in the frame
-  for (int i = 0; i < n; i++) {
-    TEST_ASSERT_LESS_THAN(numberTop - dots[i].r, dots[i].y);                // clear of the digits
-    TEST_ASSERT_GREATER_THAN(kHgFrameY + 3 + dots[i].r, dots[i].y);         // inside the frame
-    TEST_ASSERT_GREATER_OR_EQUAL(kHgLeftX, dots[i].x);
-    TEST_ASSERT_LESS_OR_EQUAL(kHgRightX + kHgFieldW, dots[i].x);
-  }
-  // It starts inside the left field and ends inside the right one, moving left to right.
-  TEST_ASSERT_LESS_THAN(kHgLeftX + kHgFieldW, dots[0].x);
-  TEST_ASSERT_GREATER_THAN(kHgRightX, dots[n - 1].x);
-  for (int i = 1; i < n; i++) TEST_ASSERT_GREATER_THAN(dots[i - 1].x, dots[i].x);
-}
-
-void test_stream_grains_shrink_as_they_fall() {
-  StreamDot dots[kStreamDots];
-  const int n = hourglassStream(running(TimerStyle::Hourglass, 25, 12 * kMin), dots, kStreamDots);
-  TEST_ASSERT_GREATER_THAN(dots[n - 1].r, dots[0].r);
-  for (int i = 1; i < n; i++) TEST_ASSERT_LESS_OR_EQUAL(dots[i - 1].r, dots[i].r);
-}
-
-void test_stream_advances_with_time_and_freezes_when_time_stops() {
-  // Same dot, a quarter of a second later (remaining time falls by 250 ms): it has moved right.
-  StreamDot a[kStreamDots], b[kStreamDots], c[kStreamDots];
-  const uint32_t base = 12 * kMin;  // elapsed = 13 min exactly: phase 0
-  const int na = hourglassStream(running(TimerStyle::Hourglass, 25, base), a, kStreamDots);
-  const int nb = hourglassStream(running(TimerStyle::Hourglass, 25, base - 250), b, kStreamDots);
-  const int nc = hourglassStream(running(TimerStyle::Hourglass, 25, base), c, kStreamDots);
-  TEST_ASSERT_EQUAL(na, nc);
-  TEST_ASSERT_GREATER_THAN(0, nb);
-  for (int i = 0; i < na && i < nb; i++) {
-    TEST_ASSERT_GREATER_THAN(a[i].x, b[i].x);   // moved right
-    TEST_ASSERT_EQUAL(a[i].x, c[i].x);          // same time, same picture
-    TEST_ASSERT_EQUAL(a[i].y, c[i].y);
-  }
-}
-
-void test_stream_phase_is_a_fraction_that_wraps() {
-  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, streamPhase(0));
-  TEST_ASSERT_FLOAT_WITHIN(0.001f, kStreamSpeed * 0.25f, streamPhase(250));
-  TEST_ASSERT_TRUE(streamPhase(1500) >= 0.0f && streamPhase(1500) < 1.0f);
-  TEST_ASSERT_TRUE(streamPhase(4000000000u) >= 0.0f && streamPhase(4000000000u) < 1.0f);
-}
-
-void test_stream_is_drawn_on_the_canvas_above_the_digits() {
-  Canvas with(kW, kH), without(kW, kH);
-  renderTimer(with, running(TimerStyle::Hourglass, 25, 12 * kMin));
-  renderTimer(without, setting(TimerStyle::Hourglass, 25));
-  const int numberTop = kHgFrameY + (kHgFrameH - 100) / 2;
-  const int above = inkIn(with, kHgCenterL, kHgFrameY + 4, kHgCenterR, numberTop - 2);
-  TEST_ASSERT_GREATER_THAN(150, above);                                              // the arch is visible in the gap
-  TEST_ASSERT_EQUAL(0, inkIn(without, kHgCenterL, kHgFrameY + 4, kHgCenterR, numberTop - 2));  // and absent otherwise
+  TEST_ASSERT_GREATER_THAN(500, inkIn(c, kHgCenterL, kHgMid - 50, kHgCenterR, kHgMid + 50));
 }
 
 void test_disc_wedge_area_matches_the_fraction() {
@@ -295,18 +325,20 @@ void test_every_style_shows_the_number_of_minutes_left() {
 
 int main() {
   UNITY_BEGIN();
-  RUN_TEST(test_hourglass_dots_flow_from_left_to_right);
-  RUN_TEST(test_hourglass_fields_are_mirror_images_at_half_time);
-  RUN_TEST(test_hourglass_start_is_all_left_and_finish_is_all_right);
+  RUN_TEST(test_dot_size_falls_steadily_from_the_edge_to_the_neck);
+  RUN_TEST(test_the_bulbs_narrow_to_a_single_row_at_the_neck);
+  RUN_TEST(test_dots_sit_on_a_regular_grid_sized_only_by_column);
+  RUN_TEST(test_hourglass_left_bulb_drains_while_right_bulb_fills);
+  RUN_TEST(test_hourglass_bulbs_mirror_each_other_at_half_time);
+  RUN_TEST(test_hourglass_start_is_all_left_and_the_end_is_all_right);
   RUN_TEST(test_hourglass_does_not_refill_in_the_last_minute);
+  RUN_TEST(test_the_shape_is_an_hourglass_with_empty_corners_above_and_below_the_neck);
+  RUN_TEST(test_neck_grains_run_along_the_centre_line_between_the_sand_edges);
+  RUN_TEST(test_neck_grains_exist_only_while_sand_is_pouring);
+  RUN_TEST(test_neck_grains_move_one_column_per_second);
+  RUN_TEST(test_neck_grains_freeze_when_time_stops);
   RUN_TEST(test_hourglass_number_is_minutes_and_seconds);
-  RUN_TEST(test_hourglass_number_fits_for_three_digit_minutes);
-  RUN_TEST(test_stream_exists_only_while_sand_is_pouring);
-  RUN_TEST(test_stream_arches_over_the_number_from_the_left_field_to_the_right);
-  RUN_TEST(test_stream_grains_shrink_as_they_fall);
-  RUN_TEST(test_stream_advances_with_time_and_freezes_when_time_stops);
-  RUN_TEST(test_stream_phase_is_a_fraction_that_wraps);
-  RUN_TEST(test_stream_is_drawn_on_the_canvas_above_the_digits);
+  RUN_TEST(test_hourglass_three_digit_minutes_still_render_in_the_middle);
   RUN_TEST(test_disc_wedge_area_matches_the_fraction);
   RUN_TEST(test_disc_wedge_ends_at_twelve_o_clock_and_sweeps_clockwise);
   RUN_TEST(test_dot_counts);

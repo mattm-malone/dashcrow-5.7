@@ -131,12 +131,11 @@ static uint32_t contentKey(const LocalTime &t) {
       const uint32_t style = uint32_t(app.timerStyle()) << 24;  // switching styles must redraw
       if (tm.state() == TimerModel::State::Setting) return (mode << 28) | style | uint32_t(tm.setMinutes());
       if (tm.state() == TimerModel::State::Done) return (mode << 28) | style;
-      // How often the picture changes: the hourglass redraws twice a second (MM:SS plus the pouring stream); the
-      // last minute redraws every second; otherwise each style redraws in steps that look smooth without refreshing constantly.
+      // How often the picture changes: the hourglass redraws every second (MM:SS, and its grains advance a column
+      // a second); so does the last minute; otherwise each style redraws in steps that look smooth without refreshing constantly.
       const uint32_t rem = tm.remainingMs(), total = tm.totalMs();
       uint32_t step;
-      if (app.timerStyle() == TimerStyle::Hourglass) step = (rem / 500) & 0x7FFF;  // twice a second so the pour moves
-      else if (tm.inLastMinute()) step = ((rem + 999) / 1000) & 0x7FFF;
+      if (app.timerStyle() == TimerStyle::Hourglass || tm.inLastMinute()) step = ((rem + 999) / 1000) & 0x7FFF;
       else if (app.timerStyle() == TimerStyle::Disc) step = total ? rem * 120u / total : 0;  // 3 degree steps
       else if (app.timerStyle() == TimerStyle::Dots) step = rem / 7500u;                      // 1/8 of a dot
       else step = uint32_t(timerBarFilledPx(rem, total, kBarW) / 8);
