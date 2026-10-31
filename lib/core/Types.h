@@ -17,4 +17,5 @@ struct InputEvent {
   Button button;  // Press only
   int dir;        // Turn only: +1 up, -1 down
   uint32_t ms;    // when the input happened (millis); 0 if unknown
+  bool repeat;    // Turn only: auto-repeat of a held key (not the initial press)
 };

@@ -120,6 +120,50 @@ void test_millis_rollover() {
   TEST_ASSERT_EQUAL_UINT32(t.totalMs() - 2024, t.remainingMs());
 }
 
+static TimerModel at(int minutes) {
+  TimerModel t;
+  t.turn(minutes - 25);
+  return t;
+}
+
+void test_step_up_snaps_to_next_multiple() {
+  TimerModel a = at(26);
+  a.turnToStep(+1, 5);
+  TEST_ASSERT_EQUAL(30, a.setMinutes());
+  a.turnToStep(+1, 5);
+  TEST_ASSERT_EQUAL(35, a.setMinutes());
+}
+
+void test_step_down_snaps_to_previous_multiple() {
+  TimerModel a = at(26);
+  a.turnToStep(-1, 5);
+  TEST_ASSERT_EQUAL(25, a.setMinutes());
+  a.turnToStep(-1, 5);
+  TEST_ASSERT_EQUAL(20, a.setMinutes());
+}
+
+void test_step_clamps_at_both_ends() {
+  TimerModel hi = at(178);
+  hi.turnToStep(+1, 5);
+  TEST_ASSERT_EQUAL(180, hi.setMinutes());
+  hi.turnToStep(+1, 5);
+  TEST_ASSERT_EQUAL(180, hi.setMinutes());
+  TimerModel lo = at(3);
+  lo.turnToStep(-1, 5);
+  TEST_ASSERT_EQUAL(1, lo.setMinutes());
+  lo.turnToStep(-1, 5);
+  TEST_ASSERT_EQUAL(1, lo.setMinutes());
+}
+
+void test_step_updates_total_and_is_ignored_when_running() {
+  TimerModel a = at(26);
+  a.turnToStep(+1, 5);
+  TEST_ASSERT_EQUAL_UINT32(30 * kMin, a.totalMs());
+  a.click(0);
+  a.turnToStep(+1, 5);
+  TEST_ASSERT_EQUAL(30, a.setMinutes());
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_defaults);
@@ -134,5 +178,9 @@ int main() {
   RUN_TEST(test_click_in_done_returns_to_setting);
   RUN_TEST(test_last_minute);
   RUN_TEST(test_millis_rollover);
+  RUN_TEST(test_step_up_snaps_to_next_multiple);
+  RUN_TEST(test_step_down_snaps_to_previous_multiple);
+  RUN_TEST(test_step_clamps_at_both_ends);
+  RUN_TEST(test_step_updates_total_and_is_ignored_when_running);
   return UNITY_END();
 }

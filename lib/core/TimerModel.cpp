@@ -14,6 +14,14 @@ void TimerModel::turn(int delta) {
   total_ = remaining_ = uint32_t(minutes_) * kMinuteMs;
 }
 
+void TimerModel::turnToStep(int dir, int step) {
+  if (state_ != State::Setting || step < 1) return;
+  // Next multiple of `step` strictly above (dir > 0) or strictly below (dir < 0) the current value.
+  const int target = dir > 0 ? (minutes_ / step + 1) * step : ((minutes_ + step - 1) / step - 1) * step;
+  minutes_ = target < kMinMinutes ? kMinMinutes : (target > kMaxMinutes ? kMaxMinutes : target);
+  total_ = remaining_ = uint32_t(minutes_) * kMinuteMs;
+}
+
 // Elapsed time uses unsigned subtraction so a millis() wrap mid-timer is harmless.
 void TimerModel::settle(uint32_t nowMs) {
   const uint32_t elapsed = nowMs - startMs_;

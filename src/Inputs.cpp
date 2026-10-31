@@ -87,6 +87,7 @@ bool Inputs::poll(InputEvent &out, uint32_t nowMs) {
     if (gRepeat[r].next(nowMs, at)) {
       out = kDefs[k].event;
       out.ms = at;
+      out.repeat = true;
       return true;
     }
   }

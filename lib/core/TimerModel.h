@@ -6,6 +6,7 @@ class TimerModel {
   enum class State { Setting, Running, Paused, Done };
 
   void turn(int delta);            // Setting only: adjusts minutes, clamped to 1..180
+  void turnToStep(int dir, int step);  // Setting only: moves to the next multiple of `step` in direction dir (+1/-1)
   void click(uint32_t nowMs);      // Setting->Running, Running<->Paused, Done->Setting
   void cancel();                   // any state -> Setting (keeps the chosen minutes)
   void tick(uint32_t nowMs);       // advances a running timer; Running->Done at zero

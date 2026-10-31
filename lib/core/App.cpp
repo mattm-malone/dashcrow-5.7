@@ -42,7 +42,9 @@ void App::onInput(const InputEvent &ev, uint32_t nowMs, const LocalTime &now) {
 
   if (page_ == Page::Timer) {
     if (ev.type == InputEvent::Type::Turn) {
-      timer_.turn(ev.dir);
+      // First press moves one minute; a held key's repeats jump to the next multiple of five.
+      if (ev.repeat) timer_.turnToStep(ev.dir, 5);
+      else timer_.turn(ev.dir);
     } else if (ev.button == Button::Click) {
       timer_.click(nowMs);
     } else if (ev.button == Button::Exit) {

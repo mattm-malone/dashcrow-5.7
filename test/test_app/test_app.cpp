@@ -12,6 +12,7 @@ static LocalTime mk(uint8_t wday, uint8_t h, uint8_t m, uint8_t s = 0) {
 }
 static InputEvent press(Button b) { return {Type::Press, b, 0}; }
 static InputEvent turn(int dir) { return {Type::Turn, Button::Click, dir}; }
+static InputEvent heldTurn(int dir) { return {Type::Turn, Button::Click, dir, 0, true}; }
 
 // An App whose stand-up overlay is showing, sitting on the Timer page.
 static void toTimerPage(App &a, uint32_t ms, const LocalTime &t) {
@@ -223,6 +224,27 @@ void test_timer_finishing_off_page_switches_to_timer_page() {
   TEST_ASSERT_TRUE(a.page() == Page::Timer);  // finished timer must be seen
 }
 
+void test_single_press_steps_one_but_held_repeats_snap_to_fives() {
+  App a;
+  toTimerPage(a, 0, mk(1, 9, 0));
+  a.onInput(turn(1), 1000, mk(1, 9, 0));  // initial press: 25 -> 26
+  TEST_ASSERT_EQUAL(26, a.timer().setMinutes());
+  a.onInput(heldTurn(1), 1400, mk(1, 9, 0));
+  TEST_ASSERT_EQUAL(30, a.timer().setMinutes());
+  a.onInput(heldTurn(1), 1520, mk(1, 9, 0));
+  TEST_ASSERT_EQUAL(35, a.timer().setMinutes());
+  a.onInput(heldTurn(-1), 5000, mk(1, 9, 0));
+  TEST_ASSERT_EQUAL(30, a.timer().setMinutes());
+}
+
+void test_held_repeat_on_timeline_still_scrolls_one_day() {
+  App a;
+  toTimelinePage(a);
+  a.onInput(turn(1), 1000, mk(1, 9, 0));
+  a.onInput(heldTurn(1), 1400, mk(1, 9, 0));
+  TEST_ASSERT_EQUAL(2, a.dayOffset());
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_boots_on_clock);
@@ -246,5 +268,7 @@ int main() {
   RUN_TEST(test_timeline_click_resets_offset);
   RUN_TEST(test_offset_clamped_to_week);
   RUN_TEST(test_timer_finishing_off_page_switches_to_timer_page);
+  RUN_TEST(test_single_press_steps_one_but_held_repeats_snap_to_fives);
+  RUN_TEST(test_held_repeat_on_timeline_still_scrolls_one_day);
   return UNITY_END();
 }
