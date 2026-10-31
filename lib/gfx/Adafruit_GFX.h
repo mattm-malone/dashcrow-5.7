@@ -1,6 +1,12 @@
 #ifndef _ADAFRUIT_GFX_H
 #define _ADAFRUIT_GFX_H
 
+// Vendored: host builds (platform=native) have no ARDUINO define, and defining it globally
+// would make ArduinoJson reach for Arduino types.
+#ifndef ARDUINO
+#define ARDUINO 100
+#endif
+
 #if ARDUINO >= 100
 #include "Arduino.h"
 #include "Print.h"

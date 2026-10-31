@@ -23,6 +23,11 @@
 #define STANDUP_END_HOUR 17
 #define STANDUP_WEEKDAY_MASK 0b0111110
 
+// Personal calendar feed from tools/calfeed (see its README). Empty disables it. Never point
+// this at work data.
+#define FEED_URL ""
+#define FEED_REFRESH_MIN 15
+
 // Recurring meetings, typed in by hand (no work-calendar data is read). Times are minutes since
 // midnight; weekday mask bit 0 = Sunday (0b0111110 = Mon-Fri, 1 << 3 = Wednesday only).
 #include "Calendar.h"

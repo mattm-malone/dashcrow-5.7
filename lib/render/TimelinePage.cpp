@@ -125,7 +125,7 @@ void drawDaylight(Canvas &c, const TimelineView &v) {
   const int set = minuteToX(v.sun.sunsetMin, v.window, kTlW);
   c.fillRect(kTlX, kSunY, rise, kSunH, 1);
   c.fillRect(kTlX + set, kSunY, kTlW - set, kSunH, 1);
-  char a[16], b[16], line[48];
+  char a[16], b[16], line[64];
   fmtTime(a, sizeof a, v.sun.sunriseMin);
   fmtTime(b, sizeof b, v.sun.sunsetMin);
   snprintf(line, sizeof line, "sunrise %s    sunset %s", a, b);

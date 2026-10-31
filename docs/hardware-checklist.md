@@ -26,3 +26,12 @@ Flash: `pio run -e crowpanel-579 -t upload`. Serial log: 115200 baud on `/dev/tt
 
 ## Ghosting
 - [ ] After 30+ partial updates the clock page is not visibly ghosted (if it is, lower `kPartialsBeforeFull`).
+
+## Timeline and calendar feed
+- [ ] MENU to Timeline: date and time header, NEXT line, day bar with your recurring meetings, hour labels, sunrise/sunset strip.
+- [ ] The "now" marker sits at the current time; past meetings are hatched.
+- [ ] Rotary up/down moves one day per press (header date changes, no "now" marker); click returns to today.
+- [ ] Set `LATITUDE`/`LONGITUDE` and compare sunrise/sunset to a weather app (within a few minutes).
+- [ ] With a timer running, the "N MIN" chip on Timeline does not overlap the header text.
+- [ ] Run `tools/calfeed` (see its README), set `FEED_URL`, and confirm personal events appear within the refresh interval.
+- [ ] Stop the feed server: config meetings remain and "FEED STALE" appears after an hour (or shorten `kStaleAfterMs` in `src/Feed.cpp` to check, then restore).

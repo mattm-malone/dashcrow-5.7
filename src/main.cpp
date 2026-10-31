@@ -3,6 +3,8 @@
 #include "Calendar.h"
 #include "Canvas.h"
 #include "Daylight.h"
+#include "Feed.h"
+#include "Merge.h"
 #include "ClockPage.h"
 #include "Inputs.h"
 #include "MakeTimerView.h"
@@ -21,6 +23,7 @@ static Canvas canvas(kW, kH);
 static PanelDisplay panel;
 static Inputs inputs;
 static Net net;
+static Feed feed;
 static RefreshPolicy policy;
 static App app(StandupConfig{STANDUP_INTERVAL_MIN, STANDUP_START_HOUR, STANDUP_END_HOUR, STANDUP_WEEKDAY_MASK});
 
@@ -71,8 +74,19 @@ static DayInfo dayInfo(int offset) {
   return {uint8_t(lt.tm_wday), uint8_t(lt.tm_mday), uint8_t(lt.tm_mon + 1), lt.tm_yday, diff / 60.0};
 }
 
+// "YYYY-MM-DD" for local today, or nullptr until the clock is valid.
+static const char *todayIso(const LocalTime &t) {
+  static char buf[11];
+  if (!t.valid) return nullptr;
+  const time_t now = time(nullptr);
+  tm lt;
+  localtime_r(&now, &lt);
+  strftime(buf, sizeof buf, "%Y-%m-%d", &lt);
+  return buf;
+}
+
 static void renderTimelinePage(const LocalTime &t) {
-  static DayEvent events[16];
+  static DayEvent events[16], config[16], fromFeed[16];
   const DayInfo d = dayInfo(app.dayOffset());
   TimelineView v{};
   v.timeValid = t.valid;
@@ -82,11 +96,14 @@ static void renderTimelinePage(const LocalTime &t) {
   v.mday = d.mday;
   v.month = d.month;
   v.events = events;
-  v.n = eventsForDay(MEETINGS, sizeof MEETINGS / sizeof MEETINGS[0], d.wday, events, 16);
+  const size_t nConfig = eventsForDay(MEETINGS, sizeof MEETINGS / sizeof MEETINGS[0], d.wday, config, 16);
+  // The feed only knows today; other days show config meetings alone.
+  const size_t nFeed = app.dayOffset() == 0 ? feed.events(fromFeed, 16, todayIso(t)) : 0;
+  v.n = mergeEvents(config, nConfig, fromFeed, nFeed, events, 16);
   v.window = {DAY_START_MIN, DAY_END_MIN};
   v.sun = sunTimes(d.yday + 1, LATITUDE, LONGITUDE, d.tzHours);
   v.dayOffset = app.dayOffset();
-  v.feedStale = false;
+  v.feedStale = feed.enabled() && feed.stale(millis());
   renderTimeline(canvas, v);
 }
 
@@ -116,9 +133,9 @@ static uint32_t contentKey(const LocalTime &t) {
   if (app.overlayActive()) return 0;
   const uint32_t chip = timerActive() ? 1u + uint32_t(tm.minutesLeft()) : 0u;
   switch (app.page()) {
-    case Page::Clock: return (t.valid ? 1u + t.hour * 60u + t.minute : 0u) | (chip << 16);
+    case Page::Clock: return (t.valid ? 1u + t.hour * 60u + t.minute : 0u) | (chip << 16) | (uint32_t(feed.version()) << 24);
     case Page::Timeline:
-      return (t.valid ? 1u + t.hour * 60u + t.minute : 0u) | (uint32_t(app.dayOffset() + 8) << 12) | (chip << 16);
+      return (t.valid ? 1u + t.hour * 60u + t.minute : 0u) | (uint32_t(app.dayOffset() + 8) << 12) | (chip << 16) | (uint32_t(feed.version()) << 24);
     case Page::Timer: {
       const uint32_t mode = uint32_t(tm.state()) + 1u;
       if (tm.state() == TimerModel::State::Setting) return (mode << 28) | uint32_t(tm.setMinutes());
@@ -137,6 +154,7 @@ void setup() {
   panel.begin();
   inputs.begin();
   net.begin();
+  feed.begin(FEED_URL, FEED_REFRESH_MIN * 60UL * 1000UL);
 #ifdef DIAG_TIMING
   runTimingDiag();
 #endif
@@ -154,6 +172,7 @@ void loop() {
     lastInputMs = ms;
   }
   app.tick(ms, t);
+  feed.poll(ms, todayIso(t));
 
   if (uint32_t(ms - lastInputMs) >= kSettleMs) {
     const uint32_t layoutKey = uint32_t(app.page()) | (app.overlayActive() ? 0x100u : 0u);
@@ -162,7 +181,7 @@ void loop() {
       render(t);
       panel.show(canvas, kind);
       panel.setClearPass(false);  // only the boot refresh pays for the 6 s clear pass; later fulls take ~2.6 s
-      Serial.printf("refresh %s %u ms\n", kind == RefreshKind::Full ? "full" : "partial", panel.lastRefreshMs());
+      Serial.printf("refresh %s %lu ms\n", kind == RefreshKind::Full ? "full" : "partial", (unsigned long)panel.lastRefreshMs());
     }
   }
   delay(10);
