@@ -85,6 +85,28 @@ void test_preview_timer_styles() {
   }
 }
 
+// Consecutive hourglass frames half a second apart, to judge the pouring motion.
+void test_preview_hourglass_flow() {
+  const uint32_t base = 12 * 60000u + 30000u;  // 12:30 left of 25 minutes
+  Canvas c(kW, kH);
+  for (int i = 0; i < 4; i++) {
+    TimerView v = runView(25, base - i * 500u);
+    v.style = TimerStyle::Hourglass;
+    renderTimer(c, v);
+    char name[48];
+    snprintf(name, sizeof name, "flow_%d", i);
+    TEST_ASSERT_TRUE(writePbm(name, c));
+  }
+  TimerView v = runView(25, 4 * 60000u);
+  v.style = TimerStyle::Hourglass;
+  renderTimer(c, v);
+  TEST_ASSERT_TRUE(writePbm("flow_late", c));
+  v = runView(25, 22 * 60000u);
+  v.style = TimerStyle::Hourglass;
+  renderTimer(c, v);
+  TEST_ASSERT_TRUE(writePbm("flow_early", c));
+}
+
 static DayEvent ev(const char *t, int a, int b) {
   DayEvent e{};
   strncpy(e.title, t, 31);
@@ -117,6 +139,7 @@ int main() {
   RUN_TEST(test_preview_clock);
   RUN_TEST(test_preview_timer_pages);
   RUN_TEST(test_preview_timer_styles);
+  RUN_TEST(test_preview_hourglass_flow);
   RUN_TEST(test_preview_timeline);
   return UNITY_END();
 }

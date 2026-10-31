@@ -89,7 +89,8 @@ void test_hourglass_start_is_all_left_and_finish_is_all_right() {
   renderTimer(done, running(TimerStyle::Hourglass, 25, 1));  // a hair above zero, still counting
   TEST_ASSERT_EQUAL(0, rightField(start));
   TEST_ASSERT_GREATER_THAN(3000, leftField(start));
-  TEST_ASSERT_LESS_THAN(leftField(start) / 20, fieldDots(done, kHgLeftX, true));   // 1 ms left is the last minute: inverted
+  // 1 ms left is the last minute (inverted); the last grains of the stream still run through the emptied left field.
+  TEST_ASSERT_LESS_THAN(leftField(start) / 5, fieldDots(done, kHgLeftX, true));
   TEST_ASSERT_GREATER_THAN(3000, fieldDots(done, kHgRightX, true));
 }
 
@@ -122,8 +123,75 @@ void test_hourglass_number_fits_for_three_digit_minutes() {
   renderTimer(c, running(TimerStyle::Hourglass, 180, 125 * kMin));
   TEST_ASSERT_GREATER_THAN(500, centerInk(c));
   // Nothing from the number leaks into the dot fields' gutters or the frame.
-  TEST_ASSERT_EQUAL(0, inkIn(c, kHgCenterL - 6, kHgFrameY + 4, kHgCenterL - 1, kHgFrameY + kHgFrameH - 4));
-  TEST_ASSERT_EQUAL(0, inkIn(c, kHgCenterR + 1, kHgFrameY + 4, kHgCenterR + 6, kHgFrameY + kHgFrameH - 4));
+  // (The pouring stream passes above the number, so look only at the rows the digits can occupy.)
+  const int numberTop = kHgFrameY + (kHgFrameH - 100) / 2;
+  TEST_ASSERT_EQUAL(0, inkIn(c, kHgCenterL - 6, numberTop, kHgCenterL - 1, kHgFrameY + kHgFrameH - 4));
+  TEST_ASSERT_EQUAL(0, inkIn(c, kHgCenterR + 1, numberTop, kHgCenterR + 6, kHgFrameY + kHgFrameH - 4));
+}
+
+void test_stream_exists_only_while_sand_is_pouring() {
+  StreamDot dots[kStreamDots];
+  TEST_ASSERT_EQUAL(0, hourglassStream(setting(TimerStyle::Hourglass, 25), dots, kStreamDots));
+  TEST_ASSERT_EQUAL(0, hourglassStream(running(TimerStyle::Hourglass, 25, 0), dots, kStreamDots));   // all poured
+  TEST_ASSERT_EQUAL(0, hourglassStream(running(TimerStyle::Hourglass, 25, 25 * kMin), dots, kStreamDots));  // not started
+  TEST_ASSERT_GREATER_THAN(10, hourglassStream(running(TimerStyle::Hourglass, 25, 12 * kMin), dots, kStreamDots));
+  TEST_ASSERT_EQUAL(0, hourglassStream(running(TimerStyle::Bar, 25, 12 * kMin), dots, kStreamDots));  // only this style
+}
+
+void test_stream_arches_over_the_number_from_the_left_field_to_the_right() {
+  StreamDot dots[kStreamDots];
+  const int n = hourglassStream(running(TimerStyle::Hourglass, 25, 12 * kMin), dots, kStreamDots);
+  const int numberTop = kHgFrameY + (kHgFrameH - 100) / 2;  // the number is at most 100 px tall, centred in the frame
+  for (int i = 0; i < n; i++) {
+    TEST_ASSERT_LESS_THAN(numberTop - dots[i].r, dots[i].y);                // clear of the digits
+    TEST_ASSERT_GREATER_THAN(kHgFrameY + 3 + dots[i].r, dots[i].y);         // inside the frame
+    TEST_ASSERT_GREATER_OR_EQUAL(kHgLeftX, dots[i].x);
+    TEST_ASSERT_LESS_OR_EQUAL(kHgRightX + kHgFieldW, dots[i].x);
+  }
+  // It starts inside the left field and ends inside the right one, moving left to right.
+  TEST_ASSERT_LESS_THAN(kHgLeftX + kHgFieldW, dots[0].x);
+  TEST_ASSERT_GREATER_THAN(kHgRightX, dots[n - 1].x);
+  for (int i = 1; i < n; i++) TEST_ASSERT_GREATER_THAN(dots[i - 1].x, dots[i].x);
+}
+
+void test_stream_grains_shrink_as_they_fall() {
+  StreamDot dots[kStreamDots];
+  const int n = hourglassStream(running(TimerStyle::Hourglass, 25, 12 * kMin), dots, kStreamDots);
+  TEST_ASSERT_GREATER_THAN(dots[n - 1].r, dots[0].r);
+  for (int i = 1; i < n; i++) TEST_ASSERT_LESS_OR_EQUAL(dots[i - 1].r, dots[i].r);
+}
+
+void test_stream_advances_with_time_and_freezes_when_time_stops() {
+  // Same dot, a quarter of a second later (remaining time falls by 250 ms): it has moved right.
+  StreamDot a[kStreamDots], b[kStreamDots], c[kStreamDots];
+  const uint32_t base = 12 * kMin;  // elapsed = 13 min exactly: phase 0
+  const int na = hourglassStream(running(TimerStyle::Hourglass, 25, base), a, kStreamDots);
+  const int nb = hourglassStream(running(TimerStyle::Hourglass, 25, base - 250), b, kStreamDots);
+  const int nc = hourglassStream(running(TimerStyle::Hourglass, 25, base), c, kStreamDots);
+  TEST_ASSERT_EQUAL(na, nc);
+  TEST_ASSERT_GREATER_THAN(0, nb);
+  for (int i = 0; i < na && i < nb; i++) {
+    TEST_ASSERT_GREATER_THAN(a[i].x, b[i].x);   // moved right
+    TEST_ASSERT_EQUAL(a[i].x, c[i].x);          // same time, same picture
+    TEST_ASSERT_EQUAL(a[i].y, c[i].y);
+  }
+}
+
+void test_stream_phase_is_a_fraction_that_wraps() {
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, streamPhase(0));
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, kStreamSpeed * 0.25f, streamPhase(250));
+  TEST_ASSERT_TRUE(streamPhase(1500) >= 0.0f && streamPhase(1500) < 1.0f);
+  TEST_ASSERT_TRUE(streamPhase(4000000000u) >= 0.0f && streamPhase(4000000000u) < 1.0f);
+}
+
+void test_stream_is_drawn_on_the_canvas_above_the_digits() {
+  Canvas with(kW, kH), without(kW, kH);
+  renderTimer(with, running(TimerStyle::Hourglass, 25, 12 * kMin));
+  renderTimer(without, setting(TimerStyle::Hourglass, 25));
+  const int numberTop = kHgFrameY + (kHgFrameH - 100) / 2;
+  const int above = inkIn(with, kHgCenterL, kHgFrameY + 4, kHgCenterR, numberTop - 2);
+  TEST_ASSERT_GREATER_THAN(150, above);                                              // the arch is visible in the gap
+  TEST_ASSERT_EQUAL(0, inkIn(without, kHgCenterL, kHgFrameY + 4, kHgCenterR, numberTop - 2));  // and absent otherwise
 }
 
 void test_disc_wedge_area_matches_the_fraction() {
@@ -233,6 +301,12 @@ int main() {
   RUN_TEST(test_hourglass_does_not_refill_in_the_last_minute);
   RUN_TEST(test_hourglass_number_is_minutes_and_seconds);
   RUN_TEST(test_hourglass_number_fits_for_three_digit_minutes);
+  RUN_TEST(test_stream_exists_only_while_sand_is_pouring);
+  RUN_TEST(test_stream_arches_over_the_number_from_the_left_field_to_the_right);
+  RUN_TEST(test_stream_grains_shrink_as_they_fall);
+  RUN_TEST(test_stream_advances_with_time_and_freezes_when_time_stops);
+  RUN_TEST(test_stream_phase_is_a_fraction_that_wraps);
+  RUN_TEST(test_stream_is_drawn_on_the_canvas_above_the_digits);
   RUN_TEST(test_disc_wedge_area_matches_the_fraction);
   RUN_TEST(test_disc_wedge_ends_at_twelve_o_clock_and_sweeps_clockwise);
   RUN_TEST(test_dot_counts);

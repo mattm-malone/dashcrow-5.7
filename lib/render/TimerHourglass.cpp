@@ -25,7 +25,8 @@ float cellNoise(int col, int row, int salt) {
   return float(h & 0xFFFF) / 65535.0f;
 }
 
-void drawField(Canvas &c, int x0, float mass, bool mirrored, int salt) {
+// `drift` slides the loose-grain pattern a column per second: toward the centre on the left, outward on the right.
+void drawField(Canvas &c, int x0, float mass, bool mirrored, int salt, int drift) {
   if (mass <= 0.002f) return;
   const float edge = mass * kReach;
   for (int col = 0; col < kHgCols; col++) {
@@ -34,7 +35,7 @@ void drawField(Canvas &c, int x0, float mass, bool mirrored, int salt) {
     for (int row = 0; row < kHgRows; row++) {
       float d = (edge - k) / kRamp;
       d = d < 0.0f ? 0.0f : (d > 1.0f ? 1.0f : d);
-      d += (cellNoise(col, row, salt) - 0.5f) * 0.5f;  // loose grains along the thin edge
+      d += (cellNoise(col + drift, row, salt) - 0.5f) * 0.5f;  // loose grains along the thin edge
       if (d <= 0.0f) continue;
       if (d > 1.0f) d = 1.0f;
       const int gridCol = mirrored ? kHgCols - 1 - col : col;
@@ -71,6 +72,40 @@ void drawClock(Canvas &c, int minutes, int seconds) {
 
 }  // namespace
 
+float streamPhase(uint32_t elapsedMs) {
+  // kStreamSpeed = 4/5 spacings per second, in integers so the phase is exact and wraps cleanly.
+  return float((uint64_t(elapsedMs) * 4 / 5) % 1000) / 1000.0f;
+}
+
+int hourglassStream(const TimerView &v, StreamDot *out, int cap) {
+  if (v.style != TimerStyle::Hourglass) return 0;
+  if (v.mode != TimerView::Mode::Running && v.mode != TimerView::Mode::Paused) return 0;
+  if (v.totalMs == 0 || v.remainingMs == 0 || v.remainingMs >= v.totalMs) return 0;  // nothing pouring
+
+  // The stream runs between the two sand surfaces: from the inner edge of the draining left field to the inner edge
+  // of the right pile, which both move as time passes, in a quadratic arch that clears the number.
+  const float f = float(v.remainingMs) / float(v.totalMs);
+  const float reach = kReach * float(kHgPitch) * 0.9f;
+  const float p0x = float(kHgLeftX) + f * reach, p0y = 96.0f;
+  const float p2x = float(kW - 20) - (1.0f - f) * reach, p2y = 100.0f;
+  const float apex = 62.0f;
+  const float p1x = (p0x + p2x) / 2.0f, p1y = (apex - 0.25f * (p0y + p2y)) / 0.5f;  // puts the arch's peak at `apex`
+  const float length = (p2x - p0x) * 1.1f;                                           // rough arc length
+  const float phase = streamPhase(v.totalMs - v.remainingMs);
+
+  int n = 0;
+  for (int i = 0; n < cap; i++) {
+    const float t = (float(i) + phase) * kStreamSpacing / length;
+    if (t > 1.0f) break;
+    const float a = (1.0f - t) * (1.0f - t), b = 2.0f * (1.0f - t) * t, c2 = t * t;
+    out[n].x = int(a * p0x + b * p1x + c2 * p2x + 0.5f);
+    out[n].y = int(a * p0y + b * p1y + c2 * p2y + 0.5f);
+    out[n].r = int(5.2f - 3.0f * t + 0.5f);  // thick where it leaves, thin where it lands
+    n++;
+  }
+  return n;
+}
+
 void drawHourglass(Canvas &c, const TimerView &v, bool /*lastMinute*/) {
   // Unlike the other styles the last minute does not rescale the picture: dots cannot flow back.
   float f = 1.0f;
@@ -87,8 +122,19 @@ void drawHourglass(Canvas &c, const TimerView &v, bool /*lastMinute*/) {
   }
 
   for (int i = 0; i < 3; i++) c.drawRect(kHgFrameX + i, kHgFrameY + i, kHgFrameW - 2 * i, kHgFrameH - 2 * i, 1);
-  drawField(c, kHgLeftX, f, false, 1);
-  drawField(c, kHgRightX, 1.0f - f, true, 2);
+  const int elapsedSec = v.mode == TimerView::Mode::Setting || v.totalMs < v.remainingMs ? 0 : int((v.totalMs - v.remainingMs) / 1000);
+  drawField(c, kHgLeftX, f, false, 1, -elapsedSec);
+  drawField(c, kHgRightX, 1.0f - f, true, 2, elapsedSec);
+
+  StreamDot dots[kStreamDots];
+  const int n = hourglassStream(v, dots, kStreamDots);
+  for (int i = 0; i < n; i++) {
+    c.fillCircle(dots[i].x, dots[i].y, dots[i].r, 1);
+    // Loose specks either side of each grain give the stream a ragged, liquid edge (fixed per grain, so they move with it).
+    const float u = cellNoise(i, 7, 3), w = cellNoise(i, 8, 4);
+    if (u > 0.45f) c.fillCircle(dots[i].x + int((u - 0.7f) * 18.0f), dots[i].y + 5 + int(w * 7.0f), 1, 1);
+    if (w > 0.55f) c.fillCircle(dots[i].x + int((w - 0.8f) * 18.0f), dots[i].y - 5 - int(u * 5.0f), 1, 1);
+  }
   drawClock(c, minutes, seconds);
 }
 

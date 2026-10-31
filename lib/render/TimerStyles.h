@@ -35,6 +35,17 @@ constexpr int kHgRightX = kW - 20 - kHgFieldW;  // right field starts here
 constexpr int kHgFieldY = kHgFrameY + (kHgFrameH - kHgRows * kHgPitch) / 2;
 constexpr int kHgCenterL = kHgLeftX + kHgFieldW + 8, kHgCenterR = kHgRightX - 8;  // room for the number
 
+// The pouring stream: dots along an arch from the left field, over the number, into the right field.
+struct StreamDot {
+  int x, y, r;
+};
+constexpr int kStreamDots = 64;       // capacity; the real count depends on the arch length
+constexpr float kStreamSpacing = 15.0f;  // px between grains along the arch
+constexpr float kStreamSpeed = 0.8f;  // dot spacings advanced per second
+float streamPhase(uint32_t elapsedMs);  // 0..1: how far the dots have advanced within one spacing
+// Dots of the stream for this frame (none while setting, before the first grain falls, or once it is all poured).
+int hourglassStream(const TimerView &v, StreamDot *out, int cap);
+
 // Time Timer disc geometry.
 constexpr int kDiscCx = 140, kDiscCy = 158, kDiscR = 96;
 
