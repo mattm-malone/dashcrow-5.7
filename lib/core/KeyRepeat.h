@@ -6,7 +6,7 @@
 class KeyRepeat {
  public:
   static constexpr uint32_t kDelayMs = 400;
-  static constexpr uint32_t kIntervalMs = 120;
+  static constexpr uint32_t kIntervalMs = 450;  // about one panel redraw (0.46 s), so each frame advances one step
 
   void press(uint32_t nowMs);
   void release();
