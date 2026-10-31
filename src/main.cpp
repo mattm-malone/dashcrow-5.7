@@ -11,6 +11,7 @@
 #include "Net.h"
 #include "PanelDisplay.h"
 #include "RefreshPolicy.h"
+#include "SettleGate.h"
 #include "StandupOverlay.h"
 #include "TimerChip.h"
 #include "TimelinePage.h"
@@ -27,9 +28,8 @@ static Feed feed;
 static RefreshPolicy policy;
 static App app(StandupConfig{STANDUP_INTERVAL_MIN, STANDUP_START_HOUR, STANDUP_END_HOUR, STANDUP_WEEKDAY_MASK});
 
-// After the last input, wait this long before redrawing so a run of rotary steps costs one refresh.
-constexpr uint32_t kSettleMs = 250;
-static uint32_t lastInputMs = 0;
+// Batches quick clicks into one redraw, but a held key still redraws every ~300 ms.
+static SettleGate gate;
 
 #ifdef DIAG_TIMING
 // Logs how long full and partial refreshes take, for tuning kPartialsBeforeFull and cadence.
@@ -172,12 +172,12 @@ void loop() {
                   ev.type == InputEvent::Type::Press ? int(ev.button) : ev.dir);
     // Use the time the press happened, not now: presses queue up during slow refreshes.
     app.onInput(ev, ev.ms, t);
-    lastInputMs = ms;
+    gate.input(ms);
   }
   app.tick(ms, t);
   feed.poll(ms, todayIso(t));
 
-  if (uint32_t(ms - lastInputMs) >= kSettleMs) {
+  if (gate.ready(ms)) {
     const uint32_t layoutKey = uint32_t(app.page()) | (app.overlayActive() ? 0x100u : 0u);
     const RefreshKind kind = policy.next(contentKey(t), layoutKey);
     if (kind != RefreshKind::None) {
@@ -187,6 +187,7 @@ void loop() {
                     (unsigned long)panel.lastRefreshMs(), (unsigned long)panel.copyMs(), (unsigned long)panel.sendMs(),
                     (unsigned long)panel.updateMs(), (unsigned long)panel.oldMs());
     }
+    gate.refreshed();
   }
   delay(10);
 }
