@@ -2,6 +2,9 @@
 #include <stdint.h>
 #include "Canvas.h"
 
+// How the running timer is drawn. Bar is the original full-width draining bar.
+enum class TimerStyle : uint8_t { Bar, Hourglass, Disc, Dots, kCount };
+
 struct TimerView {
   enum class Mode { Setting, Running, Paused, Done } mode;
   int setMinutes;          // Setting
@@ -11,6 +14,7 @@ struct TimerView {
   uint32_t totalMs;
   bool endValid;               // false while wall-clock time is unknown: hide the end time
   uint8_t endHour, endMinute;  // 24-hour wall-clock end time (Running/Paused)
+  TimerStyle style;            // zero-initialised = Bar
 };
 
 constexpr int kBarX = 12;

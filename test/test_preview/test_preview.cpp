@@ -7,6 +7,7 @@
 #include "ClockPage.h"
 #include "TimelinePage.h"
 #include "TimerPage.h"
+#include <stdio.h>
 #include <string.h>
 
 void setUp() {}
@@ -59,6 +60,31 @@ void test_preview_timer_pages() {
   TEST_ASSERT_TRUE(writePbm("timer_done", c));
 }
 
+// Each timer style at several stages of a 25-minute timer, for tools/montage.py contact sheets.
+void test_preview_timer_styles() {
+  struct Stage { const char *name; uint32_t remainingMs; bool setting; };
+  const Stage stages[] = {{"0_setting", 0, true},       {"1_start", 25 * 60000u, false},   {"2_75pct", 18 * 60000u + 45000u, false},
+                          {"3_50pct", 12 * 60000u + 30000u, false}, {"4_25pct", 6 * 60000u + 15000u, false}, {"5_90s", 90000u, false},
+                          {"6_40s", 40000u, false},      {"7_8s", 8000u, false}};
+  const struct { const char *name; TimerStyle style; } styles[] = {
+      {"hourglass", TimerStyle::Hourglass}, {"disc", TimerStyle::Disc}, {"dots", TimerStyle::Dots}};
+  Canvas c(kW, kH);
+  for (const auto &st : styles) {
+    for (const Stage &g : stages) {
+      TimerView v = g.setting ? TimerView{} : runView(25, g.remainingMs);
+      v.style = st.style;
+      if (g.setting) {
+        v.mode = TimerView::Mode::Setting;
+        v.setMinutes = 25;
+      }
+      renderTimer(c, v);
+      char name[64];
+      snprintf(name, sizeof name, "style_%s_%s", st.name, g.name);
+      TEST_ASSERT_TRUE(writePbm(name, c));
+    }
+  }
+}
+
 static DayEvent ev(const char *t, int a, int b) {
   DayEvent e{};
   strncpy(e.title, t, 31);
@@ -90,6 +116,7 @@ int main() {
   UNITY_BEGIN();
   RUN_TEST(test_preview_clock);
   RUN_TEST(test_preview_timer_pages);
+  RUN_TEST(test_preview_timer_styles);
   RUN_TEST(test_preview_timeline);
   return UNITY_END();
 }

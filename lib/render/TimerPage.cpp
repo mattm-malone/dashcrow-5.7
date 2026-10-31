@@ -2,9 +2,9 @@
 #include <stdio.h>
 #include <Fonts/FreeSansBold18pt7b.h>
 #include <Fonts/FreeSansBold24pt7b.h>
-#include <Fonts/FreeSansBold9pt7b.h>
 #include "BigDigits.h"
 #include "Text.h"
+#include "TimerStyles.h"
 
 namespace {
 
@@ -28,6 +28,51 @@ void formatEnd(char *out, size_t n, uint8_t hour, uint8_t minute) {
 }
 
 }  // namespace
+
+namespace timerstyle {
+
+float remainingFraction(const TimerView &v, bool lastMinute) {
+  if (v.mode == TimerView::Mode::Setting) return 1.0f;
+  if (lastMinute) return float(v.remainingMs) / float(kMinuteMs);
+  if (v.totalMs == 0) return 0.0f;
+  const float f = float(v.remainingMs) / float(v.totalMs);
+  return f > 1.0f ? 1.0f : f;
+}
+
+int displayValue(const TimerView &v, bool lastMinute) {
+  if (v.mode == TimerView::Mode::Setting) return v.setMinutes;
+  return lastMinute ? v.secondsLeft : v.minutesLeft;
+}
+
+void drawValueWithCaption(Canvas &c, const TimerView &v, bool lastMinute, int x, int y, int height, bool captionBelow) {
+  const int value = displayValue(v, lastMinute);
+  const bool setting = v.mode == TimerView::Mode::Setting;
+  drawBigNumber(c, x, y, height, value, 1);
+  const int digits = value >= 100 ? 3 : (value >= 10 ? 2 : 1);
+  const char *unit = lastMinute ? "SEC" : "MIN";
+  if (captionBelow) {
+    const int base = y + height + 34;
+    drawText(c, &FreeSansBold18pt7b, x, base, unit);
+    if (!setting) drawText(c, &FreeSansBold18pt7b, x + 84, base, "LEFT");
+    return;
+  }
+  const int captionX = x + bigNumberWidth(height, digits) + 28;
+  drawText(c, &FreeSansBold24pt7b, captionX, y + 68, unit);
+  if (!setting) drawText(c, &FreeSansBold24pt7b, captionX, y + 120, "LEFT");
+}
+
+void drawBarStyle(Canvas &c, const TimerView &v, bool lastMinute) {
+  drawValueWithCaption(c, v, lastMinute, 24, kDigitY, kDigitH, false);
+  if (v.mode == TimerView::Mode::Setting) {
+    const int m = v.setMinutes > kPreviewMaxMinutes ? kPreviewMaxMinutes : v.setMinutes;
+    drawBar(c, m * kBarW / kPreviewMaxMinutes, 0);
+  } else {
+    const int segments = v.totalMs < 60u * kMinuteMs ? int((v.totalMs + kMinuteMs - 1) / kMinuteMs) : 0;
+    drawBar(c, timerBarFilledPx(v.remainingMs, v.totalMs, kBarW), segments);
+  }
+}
+
+}  // namespace timerstyle
 
 int timerBarFilledPx(uint32_t remainingMs, uint32_t totalMs, int barWidthPx) {
   if (totalMs == 0) return 0;
@@ -55,18 +100,11 @@ void renderTimer(Canvas &c, const TimerView &v) {
     drawTextRight(c, &FreeSansBold18pt7b, kW - 16, 32, end);
   }
 
-  const int value = setting ? v.setMinutes : (lastMinute ? v.secondsLeft : v.minutesLeft);
-  drawBigNumber(c, 24, kDigitY, kDigitH, value, 1);
-  const int captionX = 24 + bigNumberWidth(kDigitH, value >= 100 ? 3 : (value >= 10 ? 2 : 1)) + 28;
-  drawText(c, &FreeSansBold24pt7b, captionX, 112, lastMinute ? "SEC" : "MIN");
-  if (!setting) drawText(c, &FreeSansBold24pt7b, captionX, 164, "LEFT");
-
-  if (setting) {
-    const int m = v.setMinutes > kPreviewMaxMinutes ? kPreviewMaxMinutes : v.setMinutes;
-    drawBar(c, m * kBarW / kPreviewMaxMinutes, 0);
-  } else {
-    const int segments = v.totalMs < 60u * kMinuteMs ? int((v.totalMs + kMinuteMs - 1) / kMinuteMs) : 0;
-    drawBar(c, timerBarFilledPx(v.remainingMs, v.totalMs, kBarW), segments);
+  switch (v.style) {
+    case TimerStyle::Hourglass: timerstyle::drawHourglass(c, v, lastMinute); break;
+    case TimerStyle::Disc: timerstyle::drawDisc(c, v, lastMinute); break;
+    case TimerStyle::Dots: timerstyle::drawDots(c, v, lastMinute); break;
+    default: timerstyle::drawBarStyle(c, v, lastMinute); break;
   }
 
   if (lastMinute) invertCanvas(c);
