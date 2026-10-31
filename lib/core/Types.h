@@ -6,6 +6,7 @@ struct LocalTime {
   uint32_t epoch;  // seconds; only differences are used
   uint8_t wday;    // 0 = Sunday
   uint8_t hour, minute, second;
+  uint8_t mday, month;  // month 1-12
 };
 
 enum class Page { Timeline, Timer, Clock };

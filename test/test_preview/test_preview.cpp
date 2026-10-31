@@ -32,6 +32,7 @@ static TimerView runView(uint32_t totalMin, uint32_t remainingMs) {
   v.remainingMs = remainingMs;
   v.minutesLeft = int((remainingMs + 59999) / 60000);
   v.secondsLeft = int((remainingMs + 999) / 1000);
+  v.endValid = true;
   v.endHour = 15;
   v.endMinute = 25;
   return v;

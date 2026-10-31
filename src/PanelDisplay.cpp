@@ -26,12 +26,14 @@ void PanelDisplay::show(const Canvas &canvas, RefreshKind kind) {
   const uint32_t t0 = millis();
   copyFrom(canvas);
   if (kind == RefreshKind::Full) {
-    // Clear pass first so the previous image cannot ghost into this one.
-    EPD_GPIOInit();
-    EPD_FastMode1Init();
-    EPD_Display_Clear();
-    EPD_Update();
-    EPD_Clear_R26A6H();
+    if (clearPass_) {
+      // Clear pass first so the previous image cannot ghost into this one.
+      EPD_GPIOInit();
+      EPD_FastMode1Init();
+      EPD_Display_Clear();
+      EPD_Update();
+      EPD_Clear_R26A6H();
+    }
     EPD_GPIOInit();
     EPD_FastMode1Init();
     EPD_Display(gImage);

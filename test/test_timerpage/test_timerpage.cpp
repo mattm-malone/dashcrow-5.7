@@ -14,6 +14,7 @@ static TimerView running(uint32_t totalMin, uint32_t remainingMs) {
   v.remainingMs = remainingMs;
   v.minutesLeft = int((remainingMs + kMin - 1) / kMin);
   v.secondsLeft = int((remainingMs + 999) / 1000);
+  v.endValid = true;
   v.endHour = 15;
   v.endMinute = 25;
   return v;
@@ -87,6 +88,24 @@ void test_setting_previews_bar() {
   TEST_ASSERT_NOT_EQUAL(barInk(a), barInk(b));
 }
 
+static int headerRightInk(Canvas &c) {
+  int n = 0;
+  for (int y = 0; y < 40; y++)
+    for (int x = 450; x < kW - 8; x++)
+      if (c.getPixel(x, y)) n++;
+  return n;
+}
+
+void test_end_time_hidden_when_clock_invalid() {
+  Canvas shown(kW, kH), hidden(kW, kH);
+  TimerView v = running(25, 10 * kMin);
+  renderTimer(shown, v);
+  v.endValid = false;
+  renderTimer(hidden, v);
+  TEST_ASSERT_GREATER_THAN(100, headerRightInk(shown));
+  TEST_ASSERT_EQUAL(0, headerRightInk(hidden));
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_filled_px_proportional);
@@ -96,5 +115,6 @@ int main() {
   RUN_TEST(test_last_minute_inverts);
   RUN_TEST(test_done_inverted);
   RUN_TEST(test_setting_previews_bar);
+  RUN_TEST(test_end_time_hidden_when_clock_invalid);
   return UNITY_END();
 }

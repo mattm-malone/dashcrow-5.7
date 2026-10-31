@@ -17,8 +17,9 @@ void Net::begin() {
 
 LocalTime Net::now() const {
   const time_t t = time(nullptr);
-  if (t < kSyncedAfter) return {false, 0, 0, 0, 0, 0};
+  if (t < kSyncedAfter) return {false, 0, 0, 0, 0, 0, 0, 0};
   tm lt;
   localtime_r(&t, &lt);
-  return {true, uint32_t(t), uint8_t(lt.tm_wday), uint8_t(lt.tm_hour), uint8_t(lt.tm_min), uint8_t(lt.tm_sec)};
+  return {true, uint32_t(t), uint8_t(lt.tm_wday), uint8_t(lt.tm_hour), uint8_t(lt.tm_min), uint8_t(lt.tm_sec),
+          uint8_t(lt.tm_mday), uint8_t(lt.tm_mon + 1)};
 }

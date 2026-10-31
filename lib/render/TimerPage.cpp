@@ -4,6 +4,7 @@
 #include <Fonts/FreeSansBold24pt7b.h>
 #include <Fonts/FreeSansBold9pt7b.h>
 #include "BigDigits.h"
+#include "Text.h"
 
 namespace {
 
@@ -12,37 +13,6 @@ constexpr int kSegGap = 3;
 constexpr int kDigitH = 150;
 constexpr int kDigitY = 44;
 constexpr uint32_t kMinuteMs = 60000;
-
-int textWidth(Canvas &c, const GFXfont *f, const char *s, int size) {
-  int16_t x1, y1;
-  uint16_t w, h;
-  c.setFont(f);
-  c.setTextSize(size);
-  c.getTextBounds(s, 0, 0, &x1, &y1, &w, &h);
-  return w;
-}
-
-void drawText(Canvas &c, const GFXfont *f, int x, int baseline, const char *s, int size = 1) {
-  c.setFont(f);
-  c.setTextSize(size);
-  c.setTextColor(1);
-  c.setCursor(x, baseline);
-  c.print(s);
-}
-
-void drawTextRight(Canvas &c, const GFXfont *f, int right, int baseline, const char *s) {
-  drawText(c, f, right - textWidth(c, f, s, 1), baseline, s);
-}
-
-void drawTextCentered(Canvas &c, const GFXfont *f, int baseline, const char *s, int size) {
-  drawText(c, f, (kW - textWidth(c, f, s, size)) / 2, baseline, s, size);
-}
-
-void invert(Canvas &c) {
-  uint8_t *b = c.getBuffer();
-  const int n = ((c.width() + 7) / 8) * c.height();
-  for (int i = 0; i < n; i++) b[i] ^= 0xFF;
-}
 
 // Outlined bar; `filled` pixels are solid from the left. segments > 1 cuts one gap per
 // minute boundary (3 px, centred on the boundary) so each remaining minute reads as a block.
@@ -71,7 +41,7 @@ void renderTimer(Canvas &c, const TimerView &v) {
   if (v.mode == TimerView::Mode::Done) {
     drawTextCentered(c, &FreeSansBold24pt7b, 150, "TIME'S UP", 2);
     drawTextCentered(c, &FreeSansBold18pt7b, 230, "press any button", 1);
-    invert(c);
+    invertCanvas(c);
     return;
   }
 
@@ -81,7 +51,7 @@ void renderTimer(Canvas &c, const TimerView &v) {
   drawText(c, &FreeSansBold18pt7b, 16, 32, setting ? "SET TIMER" : (v.mode == TimerView::Mode::Paused ? "PAUSED" : "FOCUS"));
   if (setting) {
     drawTextRight(c, &FreeSansBold9pt7b, kW - 16, 30, "turn = minutes    click = start");
-  } else {
+  } else if (v.endValid) {
     char end[24];
     formatEnd(end, sizeof end, v.endHour, v.endMinute);
     drawTextRight(c, &FreeSansBold18pt7b, kW - 16, 32, end);
@@ -101,5 +71,5 @@ void renderTimer(Canvas &c, const TimerView &v) {
     drawBar(c, timerBarFilledPx(v.remainingMs, v.totalMs, kBarW), segments);
   }
 
-  if (lastMinute) invert(c);
+  if (lastMinute) invertCanvas(c);
 }

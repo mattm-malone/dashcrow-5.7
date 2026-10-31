@@ -9,6 +9,7 @@ struct TimerView {
   int secondsLeft;         // remaining seconds (shown in the last minute)
   uint32_t remainingMs;
   uint32_t totalMs;
+  bool endValid;               // false while wall-clock time is unknown: hide the end time
   uint8_t endHour, endMinute;  // 24-hour wall-clock end time (Running/Paused)
 };
 
