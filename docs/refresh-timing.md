@@ -25,3 +25,10 @@ Consequences:
 Full refresh: 3.7 s with the clear pass (boot and every 30 updates), 1.8 s without. Each update also writes the
 shown image into the controller's old-image RAM so the next partial diffs against what is on the glass.
 Windowed (partial-area) updates would not help: the waveform time is the same for any window.
+
+## Tried: forcing the fast-waveform temperature on partial updates (2026-10-31)
+After `EPD_HW_RESET`, wrote the temperature register (`0x18 0x80`, `0x1A 0x64 0x00` = 100 C, as
+`EPD_FastMode1Init` does) before `EPD_PartUpdate`. Waveform time stayed at 370 ms (5 runs each), so the partial
+waveform is fixed regardless of temperature. Reverted. Remaining non-waveform time is ~90 ms (copy 18, send 49
+including the controller reset, old-image sync 24), so the practical ceiling is roughly 2-2.5 updates per second.
+Untried: a custom LUT with fewer drive frames (via register 0x32), which risks contrast and panel wear.
