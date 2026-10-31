@@ -35,3 +35,13 @@ Flash: `pio run -e crowpanel-579 -t upload`. Serial log: 115200 baud on `/dev/tt
 - [ ] With a timer running, the "N MIN" chip on Timeline does not overlap the header text.
 - [ ] Run `tools/calfeed` (see its README), set `FEED_URL`, and confirm personal events appear within the refresh interval.
 - [ ] Stop the feed server: config meetings remain and "FEED STALE" appears after an hour (or shorten `kStaleAfterMs` in `src/Feed.cpp` to check, then restore).
+
+## Timer styles and dial hold
+- [ ] EXIT on the Timer page cycles Bar -> Hourglass -> Disc -> Dots -> Bar; the choice survives a reboot; EXIT on other pages does nothing.
+- [ ] EXIT no longer cancels a running timer.
+- [ ] Short click on the dial starts, pauses and resumes (it now acts when you release the dial, not when you press).
+- [ ] Holding the dial click for about a second cancels a running, paused or finished timer (minutes are kept).
+- [ ] While setting, holding the dial click resets the minutes to 25.
+- [ ] A hold does not also trigger a short click when you let go.
+- [ ] Hourglass: the dots flow left to right and the `MM:SS` counts down every second; no visible ghosting after a few minutes.
+- [ ] Disc and dots look right at 100%, 50% and in the last minute (inverted).

@@ -1,9 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include "Canvas.h"
-
-// How the running timer is drawn. Bar is the original full-width draining bar.
-enum class TimerStyle : uint8_t { Bar, Hourglass, Disc, Dots, kCount };
+#include "Types.h"
 
 struct TimerView {
   enum class Mode { Setting, Running, Paused, Done } mode;

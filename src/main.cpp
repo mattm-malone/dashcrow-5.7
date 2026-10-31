@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <Preferences.h>
 #include "App.h"
 #include "Calendar.h"
 #include "Canvas.h"
@@ -25,6 +26,8 @@ static PanelDisplay panel;
 static Inputs inputs;
 static Net net;
 static Feed feed;
+static Preferences prefs;
+static TimerStyle savedStyle = TimerStyle::Bar;
 static RefreshPolicy policy;
 static App app(StandupConfig{STANDUP_INTERVAL_MIN, STANDUP_START_HOUR, STANDUP_END_HOUR, STANDUP_WEEKDAY_MASK});
 
@@ -100,7 +103,11 @@ static void render(const LocalTime &t) {
       renderClock(canvas, {t.valid, t.hour, t.minute, t.wday, t.mday, t.month});
       break;
     case Page::Timer:
-      renderTimer(canvas, makeTimerView(app.timer(), t));
+    {
+      TimerView tv = makeTimerView(app.timer(), t);
+      tv.style = app.timerStyle();
+      renderTimer(canvas, tv);
+    }
       return;  // the timer page shows its own state; no chip
     case Page::Timeline:
       renderTimelinePage(t);
@@ -121,12 +128,18 @@ static uint32_t contentKey(const LocalTime &t) {
       return (t.valid ? 1u + t.hour * 60u + t.minute : 0u) | (uint32_t(app.dayOffset() + 8) << 12) | (chip << 16) | (uint32_t(feed.version()) << 24);
     case Page::Timer: {
       const uint32_t mode = uint32_t(tm.state()) + 1u;
-      if (tm.state() == TimerModel::State::Setting) return (mode << 28) | uint32_t(tm.setMinutes());
-      if (tm.state() == TimerModel::State::Done) return mode << 28;
-      // Bar redraws every 8 px (~16 s on a 25-minute timer); digits every minute; per second in the last minute.
-      const uint32_t step = tm.inLastMinute() ? (tm.remainingMs() + 999) / 1000
-                                              : uint32_t(timerBarFilledPx(tm.remainingMs(), tm.totalMs(), kBarW) / 8);
-      return (mode << 28) | (uint32_t(tm.minutesLeft()) << 16) | step;
+      const uint32_t style = uint32_t(app.timerStyle()) << 24;  // switching styles must redraw
+      if (tm.state() == TimerModel::State::Setting) return (mode << 28) | style | uint32_t(tm.setMinutes());
+      if (tm.state() == TimerModel::State::Done) return (mode << 28) | style;
+      // How often the picture changes: the hourglass shows MM:SS so it redraws every second; the last minute
+      // does too; otherwise each style redraws in steps that look smooth without refreshing constantly.
+      const uint32_t rem = tm.remainingMs(), total = tm.totalMs();
+      uint32_t step;
+      if (tm.inLastMinute() || app.timerStyle() == TimerStyle::Hourglass) step = ((rem + 999) / 1000) & 0x7FFF;
+      else if (app.timerStyle() == TimerStyle::Disc) step = total ? rem * 120u / total : 0;  // 3 degree steps
+      else if (app.timerStyle() == TimerStyle::Dots) step = rem / 7500u;                      // 1/8 of a dot
+      else step = uint32_t(timerBarFilledPx(rem, total, kBarW) / 8);
+      return (mode << 28) | style | (uint32_t(tm.minutesLeft()) << 16) | step;
     }
   }
   return 0;
@@ -137,6 +150,10 @@ void setup() {
   panel.begin();
   inputs.begin();
   net.begin();
+  prefs.begin("dashcrow", false);
+  savedStyle = TimerStyle(prefs.getUChar("tstyle", uint8_t(TimerStyle::Bar)));
+  app.setTimerStyle(savedStyle);
+  savedStyle = app.timerStyle();  // setTimerStyle ignores out-of-range values
   feed.begin(FEED_URL, FEED_REFRESH_MIN * 60UL * 1000UL);
 #ifdef DIAG_TIMING
   runTimingDiag();
@@ -155,6 +172,10 @@ void loop() {
     app.onInput(ev, ev.ms, t);
   }
   app.tick(ms, t);
+  if (app.timerStyle() != savedStyle) {  // remembered across reboots
+    savedStyle = app.timerStyle();
+    prefs.putUChar("tstyle", uint8_t(savedStyle));
+  }
   feed.poll(ms, todayIso(t));
 
   // No settle delay: an input redraws immediately, and presses made while the panel is busy are queued

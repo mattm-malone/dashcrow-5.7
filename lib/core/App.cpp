@@ -47,8 +47,12 @@ void App::onInput(const InputEvent &ev, uint32_t nowMs, const LocalTime &now) {
       else timer_.turn(ev.dir);
     } else if (ev.button == Button::Click) {
       timer_.click(nowMs);
+    } else if (ev.button == Button::ClickLong) {
+      // Holding the dial: abandon a running/paused/finished timer, or put the minutes back to the default.
+      if (timer_.state() == TimerModel::State::Setting) timer_.resetMinutes();
+      else timer_.cancel();
     } else if (ev.button == Button::Exit) {
-      timer_.cancel();
+      style_ = TimerStyle((uint8_t(style_) + 1) % uint8_t(TimerStyle::kCount));
     }
   }
 }

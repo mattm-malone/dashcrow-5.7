@@ -164,6 +164,27 @@ void test_step_updates_total_and_is_ignored_when_running() {
   TEST_ASSERT_EQUAL(30, a.setMinutes());
 }
 
+void test_reset_minutes_returns_to_the_default_in_setting() {
+  TimerModel t;
+  t.turn(40);
+  t.resetMinutes();
+  TEST_ASSERT_EQUAL(25, t.setMinutes());
+  TEST_ASSERT_EQUAL_UINT32(25 * kMin, t.totalMs());
+  TEST_ASSERT_EQUAL_UINT32(25 * kMin, t.remainingMs());
+  t.turn(-24);
+  t.resetMinutes();
+  TEST_ASSERT_EQUAL(25, t.setMinutes());
+}
+
+void test_reset_minutes_is_ignored_while_running() {
+  TimerModel t;
+  t.turn(10);
+  t.click(0);
+  t.resetMinutes();
+  TEST_ASSERT_EQUAL(35, t.setMinutes());
+  TEST_ASSERT_TRUE(t.state() == State::Running);
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_defaults);
@@ -178,6 +199,8 @@ int main() {
   RUN_TEST(test_click_in_done_returns_to_setting);
   RUN_TEST(test_last_minute);
   RUN_TEST(test_millis_rollover);
+  RUN_TEST(test_reset_minutes_returns_to_the_default_in_setting);
+  RUN_TEST(test_reset_minutes_is_ignored_while_running);
   RUN_TEST(test_step_up_snaps_to_next_multiple);
   RUN_TEST(test_step_down_snaps_to_previous_multiple);
   RUN_TEST(test_step_clamps_at_both_ends);

@@ -50,6 +50,12 @@ void TimerModel::click(uint32_t nowMs) {
   }
 }
 
+void TimerModel::resetMinutes() {
+  if (state_ != State::Setting) return;
+  minutes_ = kDefaultMinutes;
+  total_ = remaining_ = uint32_t(minutes_) * kMinuteMs;
+}
+
 void TimerModel::cancel() {
   state_ = State::Setting;
   total_ = remaining_ = uint32_t(minutes_) * kMinuteMs;

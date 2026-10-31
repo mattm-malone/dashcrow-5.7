@@ -1,5 +1,6 @@
 #include <unity.h>
 #include "App.h"
+#include "TimerPage.h"
 
 void setUp() {}
 void tearDown() {}
@@ -149,12 +150,95 @@ void test_click_on_timer_page_starts() {
   TEST_ASSERT_TRUE(a.timer().state() == State::Running);
 }
 
-void test_exit_cancels_timer() {
+void test_exit_cycles_the_timer_style_and_leaves_the_timer_alone() {
+  App a;
+  toTimerPage(a, 0, mk(1, 9, 0));
+  TEST_ASSERT_TRUE(a.timerStyle() == TimerStyle::Bar);
+  a.onInput(press(Button::Click), 0, mk(1, 9, 0));  // start a timer
+  const TimerStyle order[] = {TimerStyle::Hourglass, TimerStyle::Disc, TimerStyle::Dots, TimerStyle::Bar, TimerStyle::Hourglass};
+  for (TimerStyle s : order) {
+    a.onInput(press(Button::Exit), 100, mk(1, 9, 0));
+    TEST_ASSERT_TRUE(a.timerStyle() == s);
+  }
+  TEST_ASSERT_TRUE(a.timer().state() == State::Running);  // EXIT no longer cancels
+}
+
+void test_exit_does_not_change_the_style_off_the_timer_page() {
+  App a;  // Clock
+  a.onInput(press(Button::Exit), 0, mk(1, 9, 0));
+  TEST_ASSERT_TRUE(a.timerStyle() == TimerStyle::Bar);
+  a.onInput(press(Button::Menu), 0, mk(1, 9, 0));  // Timeline
+  a.onInput(press(Button::Exit), 0, mk(1, 9, 0));
+  TEST_ASSERT_TRUE(a.timerStyle() == TimerStyle::Bar);
+}
+
+void test_the_style_can_be_restored_and_survives_a_timer_cycle() {
+  App a;
+  a.setTimerStyle(TimerStyle::Disc);
+  TEST_ASSERT_TRUE(a.timerStyle() == TimerStyle::Disc);
+  toTimerPage(a, 0, mk(1, 9, 0));
+  a.onInput(press(Button::Click), 0, mk(1, 9, 0));
+  a.onInput(press(Button::ClickLong), 1000, mk(1, 9, 0));  // cancel
+  TEST_ASSERT_TRUE(a.timerStyle() == TimerStyle::Disc);
+  a.setTimerStyle(TimerStyle::kCount);  // not a real style: ignored
+  TEST_ASSERT_TRUE(a.timerStyle() == TimerStyle::Disc);
+}
+
+void test_hold_select_cancels_a_running_timer_and_keeps_its_minutes() {
+  App a;
+  toTimerPage(a, 0, mk(1, 9, 0));
+  a.onInput(turn(1), 0, mk(1, 9, 0));  // 26
+  a.onInput(press(Button::Click), 0, mk(1, 9, 0));
+  a.tick(5000, mk(1, 9, 0));
+  a.onInput(press(Button::ClickLong), 6000, mk(1, 9, 0));
+  TEST_ASSERT_TRUE(a.timer().state() == State::Setting);
+  TEST_ASSERT_EQUAL(26, a.timer().setMinutes());
+}
+
+void test_hold_select_cancels_a_paused_or_finished_timer() {
   App a;
   toTimerPage(a, 0, mk(1, 9, 0));
   a.onInput(press(Button::Click), 0, mk(1, 9, 0));
-  a.onInput(press(Button::Exit), 100, mk(1, 9, 0));
+  a.onInput(press(Button::Click), 1000, mk(1, 9, 0));  // pause
+  TEST_ASSERT_TRUE(a.timer().state() == State::Paused);
+  a.onInput(press(Button::ClickLong), 2000, mk(1, 9, 0));
   TEST_ASSERT_TRUE(a.timer().state() == State::Setting);
+  a.onInput(press(Button::Click), 3000, mk(1, 9, 0));
+  a.tick(3000 + 25u * 60000u, mk(1, 9, 30));
+  TEST_ASSERT_TRUE(a.timer().state() == State::Done);
+  a.onInput(press(Button::ClickLong), 3000 + 25u * 60000u + 10, mk(1, 9, 30));
+  TEST_ASSERT_TRUE(a.timer().state() == State::Setting);
+}
+
+void test_hold_select_resets_minutes_to_25_when_setting() {
+  App a;
+  toTimerPage(a, 0, mk(1, 9, 0));
+  for (int i = 0; i < 15; i++) a.onInput(turn(1), 1000u + i * 100u, mk(1, 9, 0));
+  TEST_ASSERT_EQUAL(40, a.timer().setMinutes());
+  a.onInput(press(Button::ClickLong), 5000, mk(1, 9, 0));
+  TEST_ASSERT_EQUAL(25, a.timer().setMinutes());
+  TEST_ASSERT_TRUE(a.timer().state() == State::Setting);
+}
+
+void test_hold_select_does_nothing_off_the_timer_page() {
+  App a;  // Clock
+  a.onInput(press(Button::ClickLong), 0, mk(1, 9, 0));
+  TEST_ASSERT_TRUE(a.page() == Page::Clock);
+  a.onInput(press(Button::Menu), 0, mk(1, 9, 0));
+  a.onInput(turn(1), 10, mk(1, 9, 0));
+  a.onInput(press(Button::ClickLong), 20, mk(1, 9, 0));  // Timeline: the day offset is left as is
+  TEST_ASSERT_EQUAL(1, a.dayOffset());
+}
+
+void test_hold_select_dismisses_the_overlay_without_acting() {
+  App a;
+  toTimerPage(a, 0, mk(1, 9, 30));
+  a.onInput(press(Button::Click), 0, mk(1, 9, 30));  // running
+  raiseOverlay(a, 0);
+  TEST_ASSERT_TRUE(a.overlayActive());
+  a.onInput(press(Button::ClickLong), 10, mk(1, 10, 30));
+  TEST_ASSERT_FALSE(a.overlayActive());
+  TEST_ASSERT_TRUE(a.timer().state() == State::Running);  // the dismissing press was swallowed
 }
 
 void test_timer_inputs_ignored_off_timer_page() {
@@ -260,7 +344,14 @@ int main() {
   RUN_TEST(test_turn_on_timer_page_changes_minutes);
   RUN_TEST(test_fast_presses_step_one_minute_each);
   RUN_TEST(test_click_on_timer_page_starts);
-  RUN_TEST(test_exit_cancels_timer);
+  RUN_TEST(test_exit_cycles_the_timer_style_and_leaves_the_timer_alone);
+  RUN_TEST(test_exit_does_not_change_the_style_off_the_timer_page);
+  RUN_TEST(test_the_style_can_be_restored_and_survives_a_timer_cycle);
+  RUN_TEST(test_hold_select_cancels_a_running_timer_and_keeps_its_minutes);
+  RUN_TEST(test_hold_select_cancels_a_paused_or_finished_timer);
+  RUN_TEST(test_hold_select_resets_minutes_to_25_when_setting);
+  RUN_TEST(test_hold_select_does_nothing_off_the_timer_page);
+  RUN_TEST(test_hold_select_dismisses_the_overlay_without_acting);
   RUN_TEST(test_timer_inputs_ignored_off_timer_page);
   RUN_TEST(test_standup_never_fires_without_valid_time);
   RUN_TEST(test_timeline_turn_changes_day_offset);

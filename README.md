@@ -5,7 +5,7 @@ Desk display firmware for the Elecrow CrowPanel ESP32-S3 5.79" e-paper (792x272,
 Three pages, cycled with the MENU button:
 
 - **Timeline**: your day as a bar with recurring meetings (from `src/config.h`; weekly, or every N weeks with an anchor date), a "now" marker, a NEXT line and a sunrise/sunset strip. Up/down scrolls days; click returns to today.
-- **Timer**: up/down sets minutes (hold to jump in fives), click starts/pauses, EXIT cancels. A bar drains across the panel; the last minute shows seconds, inverted.
+- **Timer**: up/down sets minutes (hold to jump in fives); a short click starts/pauses/resumes; holding the click for about a second cancels the timer, or resets the minutes to 25 while setting; EXIT cycles the look (bar, halftone hourglass, Time Timer disc, minute dots) and the choice is remembered. The last minute is inverted.
 - **Clock**: large time and date.
 
 A **stand-up reminder** takes over the screen on any page at a configurable interval until any button is pressed.
