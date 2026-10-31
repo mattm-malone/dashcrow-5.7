@@ -78,13 +78,15 @@ void drawNumber(Canvas &c, int x, int y, int height, int minutes, int minuteDigi
   drawBigNumber(c, colonX + kColonW + kNumberGap, y, height, seconds, 2, color);
 }
 
-void drawClock(Canvas &c, int minutes, int seconds) {
+// `plate` first clears a white window behind the number (for the solid-sand variant, where a halo alone is not enough).
+void drawClock(Canvas &c, int minutes, int seconds, bool plate) {
   const int minuteDigits = minutes >= 100 ? 3 : 2;
   const int room = kHgCenterR - kHgCenterL;
   int height = kHgDigitHeight;
   while (height > 40 && numberWidth(height, minuteDigits) > room) height -= 4;
   const int x = kHgCenterL + (room - numberWidth(height, minuteDigits)) / 2;
   const int y = kHgMid - height / 2;
+  if (plate) c.fillRect(x - 12, y - 10, numberWidth(height, minuteDigits) + 24, height + 20, 0);
 
   // White halo: the number printed in white, shifted around by a few pixels, before it is printed in black.
   for (int dy = -kHalo; dy <= kHalo; dy += kHalo)
@@ -134,20 +136,29 @@ int hourglassStream(const TimerView &v, StreamDot *out, int cap) {
   return n;
 }
 
-void drawHourglass(Canvas &c, const TimerView &v, bool /*lastMinute*/) {
+void drawHourglassGlass(Canvas &c) { drawGlass(c); }
+
+void drawHourglassNumber(Canvas &c, int minutes, int seconds, bool plate) { drawClock(c, minutes, seconds, plate); }
+
+void hourglassValues(const TimerView &v, float &fraction, int &minutes, int &seconds) {
   // Unlike the other styles the last minute does not rescale the picture: sand cannot flow back.
-  float f = 1.0f;
-  int minutes, seconds;
+  fraction = 1.0f;
   if (v.mode == TimerView::Mode::Setting) {
     minutes = v.setMinutes;
     seconds = 0;
-  } else {
-    f = v.totalMs == 0 ? 0.0f : float(v.remainingMs) / float(v.totalMs);
-    if (f > 1.0f) f = 1.0f;
-    const int totalSeconds = int((v.remainingMs + 999) / 1000);
-    minutes = totalSeconds / 60;
-    seconds = totalSeconds % 60;
+    return;
   }
+  fraction = v.totalMs == 0 ? 0.0f : float(v.remainingMs) / float(v.totalMs);
+  if (fraction > 1.0f) fraction = 1.0f;
+  const int totalSeconds = int((v.remainingMs + 999) / 1000);
+  minutes = totalSeconds / 60;
+  seconds = totalSeconds % 60;
+}
+
+void drawHourglass(Canvas &c, const TimerView &v, bool /*lastMinute*/) {
+  float f;
+  int minutes, seconds;
+  hourglassValues(v, f, minutes, seconds);
 
   drawGlass(c);
   drawSand(c, false, f * float(kHgCols));
@@ -157,7 +168,7 @@ void drawHourglass(Canvas &c, const TimerView &v, bool /*lastMinute*/) {
   const int n = hourglassStream(v, grains, kStreamDots);
   for (int i = 0; i < n; i++) c.fillCircle(grains[i].x, grains[i].y, grains[i].r, 1);
 
-  drawClock(c, minutes, seconds);
+  drawClock(c, minutes, seconds, false);
 }
 
 }  // namespace timerstyle

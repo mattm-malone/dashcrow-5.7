@@ -67,7 +67,7 @@ void test_preview_timer_styles() {
                           {"3_50pct", 12 * 60000u + 30000u, false}, {"4_25pct", 6 * 60000u + 15000u, false}, {"5_90s", 90000u, false},
                           {"6_40s", 40000u, false},      {"7_8s", 8000u, false}};
   const struct { const char *name; TimerStyle style; } styles[] = {
-      {"hourglass", TimerStyle::Hourglass}, {"disc", TimerStyle::Disc}, {"dots", TimerStyle::Dots}};
+      {"hourglass", TimerStyle::Hourglass}, {"dither", TimerStyle::Dither}, {"disc", TimerStyle::Disc}, {"dots", TimerStyle::Dots}};
   Canvas c(kW, kH);
   for (const auto &st : styles) {
     for (const Stage &g : stages) {

@@ -21,6 +21,6 @@ struct InputEvent {
   bool repeat;    // Turn only: auto-repeat of a held key (not the initial press)
 };
 
-// How the timer is drawn. Bar is the full-width draining bar; the others are the hourglass (halftone dot
-// fields), the Time Timer disc and one dot per minute. EXIT cycles through them in this order.
-enum class TimerStyle : uint8_t { Bar, Hourglass, Disc, Dots, kCount };
+// How the timer is drawn. Bar is the full-width draining bar; the others are the hourglass (halftone dots),
+// the same hourglass in dithered sand, the Time Timer disc and one dot per minute. EXIT cycles through them in this order.
+enum class TimerStyle : uint8_t { Bar, Hourglass, Dither, Disc, Dots, kCount };

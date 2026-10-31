@@ -224,6 +224,157 @@ void test_hourglass_three_digit_minutes_still_render_in_the_middle() {
   TEST_ASSERT_GREATER_THAN(500, inkIn(c, kHgCenterL, kHgMid - 50, kHgCenterR, kHgMid + 50));
 }
 
+// ---- Dithered hourglass ----
+
+static float bandDensity(Canvas &c, int x0, int x1) {  // share of black pixels in a band along the centre line
+  const int y0 = kHgMid - 15, y1 = kHgMid + 15;
+  return float(inkIn(c, x0, y0, x1, y1)) / float((x1 - x0) * (y1 - y0));
+}
+
+void test_sand_density_runs_from_solid_to_empty() {
+  for (float d : {0.0f, 100.0f, 376.0f}) {
+    TEST_ASSERT_TRUE(sandDensity(d, 1.0f) == 1.0f);   // a full bulb is solid right up to the neck
+    TEST_ASSERT_TRUE(sandDensity(d, 0.0f) == 0.0f);   // an empty one has nothing
+  }
+  // Along the bulb the density never rises, and it fades over about kSandFade pixels.
+  float prev = 1.0f;
+  int fadeStart = -1, fadeEnd = -1;
+  for (int d = 0; d <= kSandBulb; d++) {
+    const float x = sandDensity(float(d), 0.4f);
+    TEST_ASSERT_TRUE(x <= prev);
+    if (x < 1.0f && fadeStart < 0) fadeStart = d;
+    if (x <= 0.0f && fadeEnd < 0) fadeEnd = d;
+    prev = x;
+  }
+  TEST_ASSERT_GREATER_THAN(0, fadeStart);
+  TEST_ASSERT_INT_WITHIN(3, int(kSandFade), fadeEnd - fadeStart);
+  // More sand = more density at any position.
+  for (float d : {20.0f, 150.0f, 300.0f}) {
+    float last = -1.0f;
+    for (float f : {0.0f, 0.2f, 0.4f, 0.6f, 0.8f, 1.0f}) {
+      TEST_ASSERT_TRUE(sandDensity(d, f) >= last);
+      last = sandDensity(d, f);
+    }
+  }
+}
+
+void test_dither_full_bulb_is_solid_and_the_far_bulb_is_empty() {
+  Canvas c(kW, kH);
+  renderTimer(c, setting(TimerStyle::Dither, 25));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.0f, bandDensity(c, 40, 180));        // left bulb solid
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, bandDensity(c, kW - 180, kW - 40));  // right bulb empty
+}
+
+void test_dither_fades_with_a_real_dither_pattern() {
+  Canvas c(kW, kH);
+  renderTimer(c, running(TimerStyle::Dither, 25, uint32_t(0.3f * 25 * kMin)));  // left bulb 30% full
+  const float solid = bandDensity(c, kHgLeftX + 4, kHgLeftX + 24);
+  const float fade = bandDensity(c, kHgLeftX + 90, kHgLeftX + 110);
+  const float empty = bandDensity(c, 196, 236);
+  TEST_ASSERT_TRUE(solid > 0.97f);
+  TEST_ASSERT_TRUE(fade > 0.15f && fade < 0.85f);   // neither solid nor empty: it is dithered
+  TEST_ASSERT_TRUE(empty < 0.08f);   // no sand here; only the pouring grains cross it (about 4% of the band)
+  // And the dither mixes both colours locally instead of making stripes: a small block holds black and white.
+  int black = 0, white = 0;
+  for (int y = kHgMid - 6; y < kHgMid + 6; y++)
+    for (int x = kHgLeftX + 90; x < kHgLeftX + 102; x++) (c.getPixel(x, y) ? black : white)++;
+  TEST_ASSERT_GREATER_THAN(10, black);
+  TEST_ASSERT_GREATER_THAN(10, white);
+}
+
+void test_dither_left_empties_and_right_fills_as_time_passes() {
+  int prev = 1 << 30;
+  for (uint32_t r : {12 * kMin, 9 * kMin, 6 * kMin, 3 * kMin, 1 * kMin + 5000}) {
+    Canvas c(kW, kH);
+    renderTimer(c, running(TimerStyle::Dither, 25, r));
+    TEST_ASSERT_LESS_THAN(prev, leftBulbInk(c));
+    prev = leftBulbInk(c);
+  }
+  prev = -1;
+  for (uint32_t r : {22 * kMin, 20 * kMin, 18 * kMin, 16 * kMin, 14 * kMin}) {
+    Canvas c(kW, kH);
+    renderTimer(c, running(TimerStyle::Dither, 25, r));
+    TEST_ASSERT_GREATER_THAN(prev, rightBulbInk(c));
+    prev = rightBulbInk(c);
+  }
+}
+
+void test_dither_bulbs_mirror_each_other_at_half_time() {
+  Canvas c(kW, kH);
+  renderTimer(c, running(TimerStyle::Dither, 25, uint32_t(12.5f * kMin)));
+  TEST_ASSERT_FLOAT_WITHIN(0.08f, 1.0f, float(leftBulbInk(c)) / float(rightBulbInk(c)));
+}
+
+void test_dither_shape_leaves_the_corners_empty() {
+  for (uint32_t r : {25 * kMin, 12 * kMin, 2 * kMin}) {
+    Canvas c(kW, kH);
+    renderTimer(c, running(TimerStyle::Dither, 25, r));
+    TEST_ASSERT_EQUAL(0, inkIn(c, kHgCenterL + 30, 48, kHgCenterR - 30, kHgMid - kHgDigitHeight / 2 - 8));
+    TEST_ASSERT_EQUAL(0, inkIn(c, kHgCenterL + 30, kHgMid + kHgDigitHeight / 2 + 8, kHgCenterR - 30, kH));
+  }
+}
+
+void test_dither_number_sits_on_a_clean_white_plate() {
+  // At the start the left bulb is solid right up to the neck. The 100 px MM:SS number starts at x = 249 and gets a
+  // plate 12 px wider on each side (from x = 237), so just left of the digits is bare glass, while sand is solid
+  // outside the plate.
+  Canvas c(kW, kH);
+  renderTimer(c, setting(TimerStyle::Dither, 25));
+  TEST_ASSERT_EQUAL(0, c.getPixel(243, kHgMid));
+  TEST_ASSERT_EQUAL(0, c.getPixel(243, kHgMid - 20));
+  TEST_ASSERT_EQUAL(1, c.getPixel(228, kHgMid));
+  TEST_ASSERT_EQUAL(1, c.getPixel(228, kHgMid - 20));
+}
+
+void test_dither_does_not_refill_in_the_last_minute() {
+  Canvas start(kW, kH), last(kW, kH);
+  renderTimer(start, setting(TimerStyle::Dither, 25));
+  renderTimer(last, running(TimerStyle::Dither, 25, 30000));
+  TEST_ASSERT_LESS_THAN(leftBulbInk(start) / 3, invertedInk(last, kHgLeftX - 14, kHgMid - kHgCapHalf - 8, kHgCenterL, kHgMid + kHgCapHalf + 8));
+}
+
+void test_dither_grains_run_between_the_two_fades() {
+  StreamDot g[kStreamDots];
+  const int n = hourglassStream(running(TimerStyle::Dither, 25, 12 * kMin + 30000), g, kStreamDots);  // wrong function for this style
+  TEST_ASSERT_EQUAL(0, n);
+  const int m = ditherStream(running(TimerStyle::Dither, 25, 12 * kMin + 30000), g, kStreamDots);
+  TEST_ASSERT_GREATER_THAN(3, m);
+  for (int i = 0; i < m; i++) {
+    TEST_ASSERT_EQUAL(kHgMid, g[i].y);
+    TEST_ASSERT_EQUAL(2, g[i].r);
+    // Half time: left fade ends at 188 + 60 = 248 px from the left edge; the right pile mirrors it.
+    TEST_ASSERT_GREATER_THAN(kHgLeftX + 188 + 60 - 1, g[i].x);
+    TEST_ASSERT_LESS_THAN(kHgRightX - 188 - 60 + 1, g[i].x);
+    if (i > 0) TEST_ASSERT_EQUAL(kSandGrainPitch, g[i].x - g[i - 1].x);
+  }
+}
+
+void test_dither_grains_exist_only_while_pouring_and_advance_each_second() {
+  StreamDot a[kStreamDots], b[kStreamDots];
+  TEST_ASSERT_EQUAL(0, ditherStream(setting(TimerStyle::Dither, 25), a, kStreamDots));
+  TEST_ASSERT_EQUAL(0, ditherStream(running(TimerStyle::Dither, 25, 25 * kMin), a, kStreamDots));
+  TEST_ASSERT_EQUAL(0, ditherStream(running(TimerStyle::Dither, 25, 0), a, kStreamDots));
+  TEST_ASSERT_EQUAL(0, ditherStream(running(TimerStyle::Hourglass, 25, 12 * kMin), a, kStreamDots));
+  const uint32_t t = 12 * kMin + 30000;
+  const int na = ditherStream(running(TimerStyle::Dither, 25, t), a, kStreamDots);
+  const int nb = ditherStream(running(TimerStyle::Dither, 25, t - 1000), b, kStreamDots);  // one second later
+  TEST_ASSERT_GREATER_THAN(3, nb);
+  // Same lattice, shifted right by kSandGrainStep (mod the pitch): each grain at s+1 sits 4 px to the right of one at s.
+  for (int j = 1; j < nb; j++) {
+    bool found = false;
+    for (int i = 0; i < na; i++) found |= a[i].x + kSandGrainStep == b[j].x;
+    TEST_ASSERT_TRUE_MESSAGE(found, "a grain did not advance by the step");
+  }
+}
+
+void test_dither_grains_freeze_when_time_stops() {
+  StreamDot a[kStreamDots], b[kStreamDots];
+  const int na = ditherStream(running(TimerStyle::Dither, 25, 10 * kMin), a, kStreamDots);
+  const int nb = ditherStream(running(TimerStyle::Dither, 25, 10 * kMin), b, kStreamDots);
+  TEST_ASSERT_EQUAL(na, nb);
+  for (int i = 0; i < na; i++) TEST_ASSERT_EQUAL(a[i].x, b[i].x);
+}
+
 void test_disc_wedge_area_matches_the_fraction() {
   for (float f : {0.25f, 0.5f, 0.75f}) {
     Canvas c(kW, kH);
@@ -293,7 +444,7 @@ void test_dots_setting_shows_one_dot_per_minute_and_the_number() {
 }
 
 void test_every_style_inverts_in_the_last_minute_and_when_done() {
-  for (TimerStyle s : {TimerStyle::Bar, TimerStyle::Hourglass, TimerStyle::Disc, TimerStyle::Dots}) {
+  for (TimerStyle s : {TimerStyle::Bar, TimerStyle::Hourglass, TimerStyle::Dither, TimerStyle::Disc, TimerStyle::Dots}) {
     Canvas last(kW, kH), done(kW, kH), normal(kW, kH);
     renderTimer(last, running(s, 25, 30000));
     TimerView d = running(s, 25, 0);
@@ -308,7 +459,7 @@ void test_every_style_inverts_in_the_last_minute_and_when_done() {
 
 void test_every_style_shows_the_number_of_minutes_left() {
   // The big number is the one thing every style must keep legible: two different values render differently.
-  for (TimerStyle s : {TimerStyle::Bar, TimerStyle::Hourglass, TimerStyle::Disc, TimerStyle::Dots}) {
+  for (TimerStyle s : {TimerStyle::Bar, TimerStyle::Hourglass, TimerStyle::Dither, TimerStyle::Disc, TimerStyle::Dots}) {
     Canvas a(kW, kH), b(kW, kH);
     renderTimer(a, running(s, 25, 20 * kMin));
     renderTimer(b, running(s, 25, 19 * kMin));
@@ -339,6 +490,17 @@ int main() {
   RUN_TEST(test_neck_grains_freeze_when_time_stops);
   RUN_TEST(test_hourglass_number_is_minutes_and_seconds);
   RUN_TEST(test_hourglass_three_digit_minutes_still_render_in_the_middle);
+  RUN_TEST(test_sand_density_runs_from_solid_to_empty);
+  RUN_TEST(test_dither_full_bulb_is_solid_and_the_far_bulb_is_empty);
+  RUN_TEST(test_dither_fades_with_a_real_dither_pattern);
+  RUN_TEST(test_dither_left_empties_and_right_fills_as_time_passes);
+  RUN_TEST(test_dither_bulbs_mirror_each_other_at_half_time);
+  RUN_TEST(test_dither_shape_leaves_the_corners_empty);
+  RUN_TEST(test_dither_number_sits_on_a_clean_white_plate);
+  RUN_TEST(test_dither_does_not_refill_in_the_last_minute);
+  RUN_TEST(test_dither_grains_run_between_the_two_fades);
+  RUN_TEST(test_dither_grains_exist_only_while_pouring_and_advance_each_second);
+  RUN_TEST(test_dither_grains_freeze_when_time_stops);
   RUN_TEST(test_disc_wedge_area_matches_the_fraction);
   RUN_TEST(test_disc_wedge_ends_at_twelve_o_clock_and_sweeps_clockwise);
   RUN_TEST(test_dot_counts);

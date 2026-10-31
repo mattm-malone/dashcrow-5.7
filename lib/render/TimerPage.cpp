@@ -102,6 +102,7 @@ void renderTimer(Canvas &c, const TimerView &v) {
 
   switch (v.style) {
     case TimerStyle::Hourglass: timerstyle::drawHourglass(c, v, lastMinute); break;
+    case TimerStyle::Dither: timerstyle::drawDitherHourglass(c, v, lastMinute); break;
     case TimerStyle::Disc: timerstyle::drawDisc(c, v, lastMinute); break;
     case TimerStyle::Dots: timerstyle::drawDots(c, v, lastMinute); break;
     default: timerstyle::drawBarStyle(c, v, lastMinute); break;

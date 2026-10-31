@@ -37,7 +37,7 @@ Flash: `pio run -e crowpanel-579 -t upload`. Serial log: 115200 baud on `/dev/tt
 - [ ] Stop the feed server: config meetings remain and "FEED STALE" appears after an hour (or shorten `kStaleAfterMs` in `src/Feed.cpp` to check, then restore).
 
 ## Timer styles and dial hold
-- [ ] EXIT on the Timer page cycles Bar -> Hourglass -> Disc -> Dots -> Bar; the choice survives a reboot; EXIT on other pages does nothing.
+- [ ] EXIT on the Timer page cycles Bar -> Hourglass -> Dither -> Disc -> Dots -> Bar; the choice survives a reboot; EXIT on other pages does nothing.
 - [ ] EXIT no longer cancels a running timer.
 - [ ] Short click on the dial starts, pauses and resumes (it now acts when you release the dial, not when you press).
 - [ ] Holding the dial click for about a second cancels a running, paused or finished timer (minutes are kept).
@@ -45,3 +45,4 @@ Flash: `pio run -e crowpanel-579 -t upload`. Serial log: 115200 baud on `/dev/tt
 - [ ] A hold does not also trigger a short click when you let go.
 - [ ] Hourglass: a sideways hourglass of dots: big at the outer ends, shrinking steadily toward the neck; the left bulb empties from the neck side, the right fills from its outer edge, a line of grains marches through the neck once a second, and the `MM:SS` counts down over it; no visible ghosting after a few minutes.
 - [ ] Disc and dots look right at 100%, 50% and in the last minute (inverted).
+- [ ] Dither hourglass: the full bulb is solid black and the fade is a smooth dither that slides toward the neck as the left bulb empties and the right one fills; grains march along the centre line each second; the number sits on a white window and is easy to read.

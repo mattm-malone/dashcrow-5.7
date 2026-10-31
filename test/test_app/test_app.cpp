@@ -155,7 +155,7 @@ void test_exit_cycles_the_timer_style_and_leaves_the_timer_alone() {
   toTimerPage(a, 0, mk(1, 9, 0));
   TEST_ASSERT_TRUE(a.timerStyle() == TimerStyle::Bar);
   a.onInput(press(Button::Click), 0, mk(1, 9, 0));  // start a timer
-  const TimerStyle order[] = {TimerStyle::Hourglass, TimerStyle::Disc, TimerStyle::Dots, TimerStyle::Bar, TimerStyle::Hourglass};
+  const TimerStyle order[] = {TimerStyle::Hourglass, TimerStyle::Dither, TimerStyle::Disc, TimerStyle::Dots, TimerStyle::Bar, TimerStyle::Hourglass};
   for (TimerStyle s : order) {
     a.onInput(press(Button::Exit), 100, mk(1, 9, 0));
     TEST_ASSERT_TRUE(a.timerStyle() == s);

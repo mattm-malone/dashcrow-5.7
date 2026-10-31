@@ -27,6 +27,7 @@ void fillWedge(Canvas &c, int cx, int cy, int r, float fraction);
 void drawBarStyle(Canvas &c, const TimerView &v, bool lastMinute);
 void drawHourglass(Canvas &c, const TimerView &v, bool lastMinute);
 void drawDisc(Canvas &c, const TimerView &v, bool lastMinute);
+void drawDitherHourglass(Canvas &c, const TimerView &v, bool lastMinute);
 void drawDots(Canvas &c, const TimerView &v, bool lastMinute);
 
 // Halftone hourglass, drawn sideways: two bulbs of dots meeting at a neck in the middle, behind the MM:SS number.
@@ -47,6 +48,22 @@ int hourglassRows(int col);                    // rows of dots in that column (t
 void hourglassDotCenter(bool rightBulb, int col, int row, int &x, int &y);
 // Grains running through the neck: along the centre line, in the gap between the two sand edges.
 int hourglassStream(const TimerView &v, StreamDot *out, int cap);
+
+// Pieces shared by the two hourglass styles (same glass, same MM:SS number over the neck).
+void drawHourglassGlass(Canvas &c);
+void drawHourglassNumber(Canvas &c, int minutes, int seconds, bool plate = false);
+// Remaining fraction (1 while setting) and the MM:SS to show; the last minute does not rescale the picture.
+void hourglassValues(const TimerView &v, float &fraction, int &minutes, int &seconds);
+
+// Dithered hourglass. A bulb that is `fraction` full is solid up to a sand edge, then fades out over kSandFade
+// pixels: density 1 = solid, 0 = empty, in between it is ordered-dithered. `distFromOuter` is measured in pixels
+// from the bulb's outer edge toward the neck (0 .. kSandBulb).
+constexpr int kSandBulb = kW / 2 - kHgLeftX;
+constexpr float kSandFade = 120.0f;
+float sandDensity(float distFromOuter, float fraction);
+// Grains along the centre line between the two fades, kSandGrainPitch apart, advancing kSandGrainStep a second.
+constexpr int kSandGrainPitch = 12, kSandGrainStep = 4;
+int ditherStream(const TimerView &v, StreamDot *out, int cap);
 
 // Time Timer disc geometry.
 constexpr int kDiscCx = 140, kDiscCy = 158, kDiscR = 96;
