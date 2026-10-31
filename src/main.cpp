@@ -4,6 +4,7 @@
 #include "Canvas.h"
 #include "Daylight.h"
 #include "Feed.h"
+#include "LocalTimeUtil.h"
 #include "Merge.h"
 #include "ClockPage.h"
 #include "Inputs.h"
@@ -55,24 +56,6 @@ static bool timerActive() {
   return s == TimerModel::State::Running || s == TimerModel::State::Paused;
 }
 
-struct DayInfo {
-  uint8_t wday, mday, month;
-  int yday;       // 0-based day of year
-  double tzHours;  // local UTC offset on that day, DST included
-};
-
-// Calendar facts for today + offset days, from the system clock (valid once NTP has synced).
-static DayInfo dayInfo(int offset) {
-  const time_t t = time(nullptr) + time_t(offset) * 86400;
-  tm lt, gt;
-  localtime_r(&t, &lt);
-  gmtime_r(&t, &gt);
-  int diff = (lt.tm_hour * 60 + lt.tm_min) - (gt.tm_hour * 60 + gt.tm_min);
-  if (diff > 720) diff -= 1440;
-  if (diff < -720) diff += 1440;
-  return {uint8_t(lt.tm_wday), uint8_t(lt.tm_mday), uint8_t(lt.tm_mon + 1), lt.tm_yday, diff / 60.0};
-}
-
 // "YYYY-MM-DD" for local today, or nullptr until the clock is valid.
 static const char *todayIso(const LocalTime &t) {
   static char buf[11];
@@ -86,7 +69,7 @@ static const char *todayIso(const LocalTime &t) {
 
 static void renderTimelinePage(const LocalTime &t) {
   static DayEvent events[16], config[16], fromFeed[16];
-  const DayInfo d = dayInfo(app.dayOffset());
+  const DayInfo d = dayInfoFor(time(nullptr), app.dayOffset());
   TimelineView v{};
   v.timeValid = t.valid;
   v.hour = t.hour;
