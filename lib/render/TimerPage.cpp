@@ -49,9 +49,7 @@ void renderTimer(Canvas &c, const TimerView &v) {
   const bool lastMinute = !setting && v.remainingMs > 0 && v.remainingMs <= kMinuteMs;
 
   drawText(c, &FreeSansBold18pt7b, 16, 32, setting ? "SET TIMER" : (v.mode == TimerView::Mode::Paused ? "PAUSED" : "FOCUS"));
-  if (setting) {
-    drawTextRight(c, &FreeSansBold9pt7b, kW - 16, 30, "turn = minutes    click = start");
-  } else if (v.endValid) {
+  if (v.endValid) {
     char end[24];
     formatEnd(end, sizeof end, v.endHour, v.endMinute);
     drawTextRight(c, &FreeSansBold18pt7b, kW - 16, 32, end);
