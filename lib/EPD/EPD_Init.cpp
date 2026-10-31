@@ -236,41 +236,37 @@ void EPD_Display_Clear(void)
 }
 
 
-void EPD_Display(const uint8_t *ImageBW)
+// Sends the framebuffer to both controllers: masterReg/slaveReg select the "new" RAM (0x24/0xa4)
+// or the "old" reference RAM (0x26/0xa6) that partial updates diff against.
+static void EPD_DisplayRegs(const uint8_t *ImageBW, uint8_t masterReg, uint8_t slaveReg)
 {
-  uint32_t i;
-  uint8_t tempOriginal;
+  // The panel wants each controller's half column by column; gather it, then send in one burst.
+  static uint8_t half[ALLSCREEN_BYTES];
   uint32_t tempcol = 0;
   uint32_t templine = 0;
-  EPD_SetRAMMP();
-  EPD_SetRAMMA();
-  EPD_WR_REG(0x24);
-  for (i = 0; i < ALLSCREEN_BYTES; i++)
+  for (int pass = 0; pass < 2; pass++)
   {
-    tempOriginal = *(ImageBW + templine * Source_BYTES * 2 + tempcol);
-    templine++;
-    if (templine >= Gate_BITS)
+    if (pass == 0) { EPD_SetRAMMP(); EPD_SetRAMMA(); EPD_WR_REG(masterReg); }
+    else { EPD_SetRAMSP(); EPD_SetRAMSA(); EPD_WR_REG(slaveReg); }
+    for (uint32_t i = 0; i < ALLSCREEN_BYTES; i++)
     {
-      tempcol++;
-      templine = 0;
+      half[i] = *(ImageBW + templine * Source_BYTES * 2 + tempcol);
+      templine++;
+      if (templine >= Gate_BITS)
+      {
+        tempcol++;
+        templine = 0;
+      }
     }
-    EPD_WR_DATA8(tempOriginal);
-  }
-  EPD_SetRAMSP();
-  EPD_SetRAMSA();
-  EPD_WR_REG(0xa4);   //write RAM for black(0)/white (1)
-  for (i = 0; i < ALLSCREEN_BYTES; i++)
-  {
-    tempOriginal = *(ImageBW + templine * Source_BYTES * 2 + tempcol);
-    templine++;
-    if (templine >= Gate_BITS)
-    {
-      tempcol++;
-      templine = 0;
-    }
-    EPD_WR_DATA8(tempOriginal);
+    EPD_WR_DATA_BUF(half, ALLSCREEN_BYTES);
   }
 }
+
+void EPD_Display(const uint8_t *ImageBW) { EPD_DisplayRegs(ImageBW, 0x24, 0xa4); }
+
+// Writes the same image into the old-image RAM. Call after an update so the next partial update
+// diffs against what is actually on the glass.
+void EPD_DisplayOld(const uint8_t *ImageBW) { EPD_DisplayRegs(ImageBW, 0x26, 0xa6); }
 
 //Horizontal scanning, from right to left, from bottom to top
 void EPD_WhiteScreen_ALL_Fast(const unsigned char *datas)
