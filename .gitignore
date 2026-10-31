@@ -6,3 +6,6 @@ __pycache__/
 # local secrets (copy config.example.h to config.h)
 src/config.h
 include/config.h
+
+# SDD scratch workspace
+.superpowers/
