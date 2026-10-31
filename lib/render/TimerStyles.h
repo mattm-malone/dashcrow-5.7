@@ -24,10 +24,16 @@ void drawHourglass(Canvas &c, const TimerView &v, bool lastMinute);
 void drawDisc(Canvas &c, const TimerView &v, bool lastMinute);
 void drawDots(Canvas &c, const TimerView &v, bool lastMinute);
 
-// Sideways hourglass geometry (also used by tests). The left bulb is the top: sand drains left to right.
-constexpr int kHgLeft = 24, kHgRight = 528, kHgTop = 52, kHgBottom = 262;
-constexpr int kHgNeck = (kHgLeft + kHgRight) / 2;
-constexpr int kHgMid = (kHgTop + kHgBottom) / 2;
+// Halftone hourglass: a framed panel with a dot field at each end and MM:SS between them. Dots drain from the
+// left field (outer edge first filled, thinning toward the centre) and pile up in the right field.
+constexpr int kHgFrameX = 8, kHgFrameY = 46, kHgFrameW = 776, kHgFrameH = 220;
+constexpr int kHgPitch = 13;                    // dot grid pitch
+constexpr int kHgCols = 17, kHgRows = 15;       // grid size of each field
+constexpr int kHgFieldW = kHgCols * kHgPitch;   // 221 px
+constexpr int kHgLeftX = 20;                    // left field starts here
+constexpr int kHgRightX = kW - 20 - kHgFieldW;  // right field starts here
+constexpr int kHgFieldY = kHgFrameY + (kHgFrameH - kHgRows * kHgPitch) / 2;
+constexpr int kHgCenterL = kHgLeftX + kHgFieldW + 8, kHgCenterR = kHgRightX - 8;  // room for the number
 
 // Time Timer disc geometry.
 constexpr int kDiscCx = 140, kDiscCy = 158, kDiscR = 96;
