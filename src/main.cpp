@@ -78,7 +78,7 @@ static void renderTimelinePage(const LocalTime &t) {
   v.mday = d.mday;
   v.month = d.month;
   v.events = events;
-  const size_t nConfig = eventsForDay(MEETINGS, sizeof MEETINGS / sizeof MEETINGS[0], d.wday, config, 16);
+  const size_t nConfig = eventsForDay(MEETINGS, sizeof MEETINGS / sizeof MEETINGS[0], DayDate{d.year, d.month, d.mday, d.wday}, config, 16);
   // The feed only knows today; other days show config meetings alone.
   const size_t nFeed = app.dayOffset() == 0 ? feed.events(fromFeed, 16, todayIso(t)) : 0;
   v.n = mergeEvents(config, nConfig, fromFeed, nFeed, events, 16);

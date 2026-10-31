@@ -30,8 +30,12 @@
 
 // Recurring meetings, typed in by hand (no work-calendar data is read). Times are minutes since
 // midnight; weekday mask bit 0 = Sunday (0b0111110 = Mon-Fri, 1 << 3 = Wednesday only).
+// Optional last four fields make a meeting repeat every N weeks: N, then the year, month and day of any date
+// in a week where it really happens. Weeks run Sunday-Saturday. Leave them out for a weekly meeting.
 #include "Calendar.h"
 static const Meeting MEETINGS[] = {
     {"Standup", 0b0111110, 9 * 60 + 30, 9 * 60 + 45},
     {"Team sync", 1 << 3, 14 * 60, 15 * 60},
+    // Every other Tuesday, counting from the week of Tue 3 Nov 2026:
+    // {"Sprint review", 1 << 2, 14 * 60, 15 * 60, 2, 2026, 11, 3},
 };

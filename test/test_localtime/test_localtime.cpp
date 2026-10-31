@@ -81,6 +81,16 @@ void test_tz_hours_follow_the_target_day() {
   TEST_ASSERT_TRUE(dayInfoFor(kOct31_noon_EDT, 1).tzHours == -5.0);  // looking ahead to the EST day
 }
 
+void test_year_is_reported_and_rolls_over() {
+  constexpr time_t kDec31_noon_EST = 1798736400;
+  TEST_ASSERT_EQUAL(2026, dayInfoFor(kDec31_noon_EST, 0).year);
+  const DayInfo next = dayInfoFor(kDec31_noon_EST, 1);
+  TEST_ASSERT_EQUAL(2027, next.year);
+  TEST_ASSERT_EQUAL(1, next.month);
+  TEST_ASSERT_EQUAL(1, next.mday);
+  TEST_ASSERT_EQUAL(2026, dayInfoFor(kNov1_noon_EST, 0).year);
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_unsynced_clock_is_invalid);
@@ -91,5 +101,6 @@ int main() {
   RUN_TEST(test_previous_day_across_fall_back);
   RUN_TEST(test_previous_day_across_spring_forward);
   RUN_TEST(test_tz_hours_follow_the_target_day);
+  RUN_TEST(test_year_is_reported_and_rolls_over);
   return UNITY_END();
 }

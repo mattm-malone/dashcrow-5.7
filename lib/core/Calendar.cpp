@@ -1,11 +1,41 @@
 #include "Calendar.h"
 #include <string.h>
 
-size_t eventsForDay(const Meeting *meetings, size_t n, uint8_t wday, DayEvent *out, size_t cap) {
+int32_t daysFromCivil(int year, int month, int mday) {
+  // Howard Hinnant's days_from_civil: shifts the year to start in March so leap days land at its end.
+  year -= month <= 2;
+  const int era = (year >= 0 ? year : year - 399) / 400;
+  const unsigned yoe = unsigned(year - era * 400);
+  const unsigned doy = unsigned((153 * (month + (month > 2 ? -3 : 9)) + 2) / 5 + mday - 1);
+  const unsigned doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+  return era * 146097 + int32_t(doe) - 719468;
+}
+
+namespace {
+
+int32_t floorDiv(int32_t a, int32_t b) { return a / b - ((a % b != 0) && ((a < 0) != (b < 0))); }
+int32_t floorMod(int32_t a, int32_t b) { return a - floorDiv(a, b) * b; }
+
+// Weekday (0 = Sunday) of a day count; 1970-01-01 was a Thursday.
+int weekdayOf(int32_t days) { return floorMod(days + 4, 7); }
+
+bool occursOn(const Meeting &m, const DayDate &day) {
+  if (!(m.weekdayMask & (1u << (day.wday % 7)))) return false;
+  if (m.everyNWeeks < 2) return true;
+  // Weeks are Sunday-based, counted from the Sunday of the anchor's week.
+  const int32_t anchor = daysFromCivil(m.anchorYear, m.anchorMonth, m.anchorMday);
+  const int32_t anchorSunday = anchor - weekdayOf(anchor);
+  const int32_t weeks = floorDiv(daysFromCivil(day.year, day.month, day.mday) - anchorSunday, 7);
+  return floorMod(weeks, m.everyNWeeks) == 0;
+}
+
+}  // namespace
+
+size_t eventsForDay(const Meeting *meetings, size_t n, const DayDate &day, DayEvent *out, size_t cap) {
   size_t count = 0;
   for (size_t i = 0; i < n && cap > 0; i++) {
     const Meeting &m = meetings[i];
-    if (!(m.weekdayMask & (1u << (wday % 7)))) continue;
+    if (!occursOn(m, day)) continue;
     const uint16_t end = m.endMin > 1440 ? 1440 : m.endMin;
     if (end <= m.startMin) continue;
 

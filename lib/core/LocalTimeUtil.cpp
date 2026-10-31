@@ -26,5 +26,6 @@ DayInfo dayInfoFor(time_t now, int offsetDays) {
   int diffMin = (local.tm_hour * 60 + local.tm_min) - (utc.tm_hour * 60 + utc.tm_min);
   if (diffMin > 720) diffMin -= 1440;
   if (diffMin < -720) diffMin += 1440;
-  return {uint8_t(local.tm_wday), uint8_t(local.tm_mday), uint8_t(local.tm_mon + 1), local.tm_yday, diffMin / 60.0};
+  return {uint8_t(local.tm_wday), uint8_t(local.tm_mday), uint8_t(local.tm_mon + 1), local.tm_yday, diffMin / 60.0,
+          uint16_t(local.tm_year + 1900)};
 }

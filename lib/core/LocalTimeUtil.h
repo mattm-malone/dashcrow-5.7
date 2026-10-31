@@ -13,6 +13,7 @@ struct DayInfo {
   uint8_t wday, mday, month;  // month 1-12
   int yday;                   // 0-based day of year
   double tzHours;             // local UTC offset on that day (noon), DST included
+  uint16_t year;
 };
 
 // The calendar day `offsetDays` from the local day containing `now`. Steps by calendar days (via noon),
