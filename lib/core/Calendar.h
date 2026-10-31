@@ -46,3 +46,7 @@ struct DayWindow {
 };
 // Pixel column for a time of day within the window, clamped to [0, widthPx].
 int minuteToX(uint16_t minute, DayWindow w, int widthPx);
+
+// First day in `days` (in order, e.g. tomorrow onward) that has a meeting, and that day's earliest event.
+// Returns its index in `days`, or -1 if none of them has one.
+int nextMeetingDay(const Meeting *meetings, size_t n, const DayDate *days, size_t nDays, DayEvent *firstEvent);

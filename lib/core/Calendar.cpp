@@ -68,3 +68,11 @@ int minuteToX(uint16_t minute, DayWindow w, int widthPx) {
   if (minute >= w.endMin) return widthPx;
   return int((uint32_t(minute - w.startMin) * uint32_t(widthPx)) / uint32_t(w.endMin - w.startMin));
 }
+
+int nextMeetingDay(const Meeting *meetings, size_t n, const DayDate *days, size_t nDays, DayEvent *firstEvent) {
+  for (size_t i = 0; i < nDays; i++) {
+    // eventsForDay returns the earliest event first, so capacity 1 is enough to find it.
+    if (eventsForDay(meetings, n, days[i], firstEvent, 1) > 0) return int(i);
+  }
+  return -1;
+}

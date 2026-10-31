@@ -198,6 +198,34 @@ void test_biweekly_meeting_still_sorts_with_weekly_ones() {
   TEST_ASSERT_EQUAL_STRING("Weekly", out[0].title);
 }
 
+void test_next_meeting_day_finds_the_first_day_with_a_meeting() {
+  const Meeting ms[] = {{"Late", kTue, 900, 960}, {"Early", kTue, 600, 660}, {"Other", 1 << 5, 700, 760}};
+  const DayDate days[] = {date(2026, 11, 4), date(2026, 11, 5), date(2026, 11, 6), date(2026, 11, 7)};  // Wed..Sat
+  DayEvent first;
+  TEST_ASSERT_EQUAL(2, nextMeetingDay(ms, 3, days, 4, &first));  // Friday: "Other"
+  TEST_ASSERT_EQUAL_STRING("Other", first.title);
+  const DayDate nextWeek[] = {date(2026, 11, 8), date(2026, 11, 9), date(2026, 11, 10)};  // Sun, Mon, Tue
+  TEST_ASSERT_EQUAL(2, nextMeetingDay(ms, 3, nextWeek, 3, &first));
+  TEST_ASSERT_EQUAL_STRING("Early", first.title);  // the earliest of that day's two
+  TEST_ASSERT_EQUAL(600, first.startMin);
+}
+
+void test_next_meeting_day_none() {
+  const Meeting ms[] = {{"Tue only", kTue, 600, 660}};
+  const DayDate days[] = {date(2026, 11, 4), date(2026, 11, 5)};
+  DayEvent first;
+  TEST_ASSERT_EQUAL(-1, nextMeetingDay(ms, 1, days, 2, &first));
+  TEST_ASSERT_EQUAL(-1, nextMeetingDay(ms, 0, days, 2, &first));
+  TEST_ASSERT_EQUAL(-1, nextMeetingDay(ms, 1, days, 0, &first));
+}
+
+void test_next_meeting_day_skips_the_off_week_of_a_biweekly_meeting() {
+  DayDate days[14];
+  for (int i = 0; i < 14; i++) days[i] = date(2026, 11, 4 + i);  // Wed 4 Nov .. Tue 17 Nov
+  DayEvent first;
+  TEST_ASSERT_EQUAL(13, nextMeetingDay(&kBiweekly, 1, days, 14, &first));  // Tue 17 Nov, not Tue 10 Nov
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_weekday_filter);
@@ -221,5 +249,8 @@ int main() {
   RUN_TEST(test_every_three_weeks);
   RUN_TEST(test_weekly_default_ignores_the_anchor);
   RUN_TEST(test_biweekly_meeting_still_sorts_with_weekly_ones);
+  RUN_TEST(test_next_meeting_day_finds_the_first_day_with_a_meeting);
+  RUN_TEST(test_next_meeting_day_none);
+  RUN_TEST(test_next_meeting_day_skips_the_off_week_of_a_biweekly_meeting);
   return UNITY_END();
 }

@@ -5,6 +5,15 @@
 #include "Canvas.h"
 #include "Daylight.h"
 
+// The next meeting on a later day, shown when nothing is left today.
+struct UpcomingMeeting {
+  bool valid;
+  char title[32];
+  uint8_t daysAhead;  // 1 = tomorrow
+  uint8_t wday;       // 0 = Sunday
+  uint16_t startMin;
+};
+
 struct TimelineView {
   bool timeValid;             // false: no "now" marker, no countdown
   uint8_t hour, minute;       // current time
@@ -15,6 +24,7 @@ struct TimelineView {
   SunTimes sun;
   int dayOffset;              // 0 = today; other days show no "now" marker or countdown
   bool feedStale;
+  UpcomingMeeting upcoming;   // used for today's NEXT line when no meeting is left
 };
 
 constexpr int kTlX = 12;

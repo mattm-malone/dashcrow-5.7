@@ -46,36 +46,45 @@ void drawHeader(Canvas &c, const TimelineView &v, bool live) {
   if (v.feedStale) drawText(c, &FreeSansBold9pt7b, kStaleX + 4, kStaleY + 20, "FEED STALE");
 }
 
-void drawNextLine(Canvas &c, const TimelineView &v, bool live) {
+// "NEXT"/"NOW" label, the meeting name (shortened to fit) and when it happens, right-aligned.
+void drawNamedMeeting(Canvas &c, const char *label, const char *name, const char *when) {
   const int baseline = kNextY + 36;
+  drawText(c, &FreeSansBold12pt7b, 16, baseline, label);
+
+  char title[32];
+  strncpy(title, name, sizeof title - 1);
+  title[sizeof title - 1] = '\0';
+  for (size_t len = strlen(title); len > 1 && textWidth(c, &FreeSansBold18pt7b, title) > kTitleMaxW;) title[--len] = '\0';
+  drawText(c, &FreeSansBold18pt7b, kTitleX, baseline, title);
+  drawTextRight(c, &FreeSansBold12pt7b, kW - 16, baseline, when);
+}
+
+// Names the meeting that is on now or next. When nothing is left today it names the next meeting on a later day;
+// with no meeting to show it draws nothing, so an empty day stays uncluttered.
+void drawNextLine(Canvas &c, const TimelineView &v, bool live) {
   if (!live) {
+    if (v.n == 0) return;
     char buf[32];
-    if (v.n == 0) snprintf(buf, sizeof buf, "No meetings");
-    else snprintf(buf, sizeof buf, "%d meeting%s", int(v.n), v.n == 1 ? "" : "s");
-    drawText(c, &FreeSansBold18pt7b, 16, baseline, buf);
+    snprintf(buf, sizeof buf, "%d meeting%s", int(v.n), v.n == 1 ? "" : "s");
+    drawText(c, &FreeSansBold18pt7b, 16, kNextY + 36, buf);
     return;
   }
   const uint16_t nowMin = v.hour * 60 + v.minute;
   const NextInfo next = nextEvent(v.events, v.n, nowMin);
-  if (next.index < 0) {
-    drawText(c, &FreeSansBold18pt7b, 16, baseline, "No more meetings today");
-    return;
-  }
-  const DayEvent &e = v.events[next.index];
-  drawText(c, &FreeSansBold12pt7b, 16, baseline, next.inProgress ? "NOW" : "NEXT");
-
-  char title[32];
-  strncpy(title, e.title, sizeof title - 1);
-  title[sizeof title - 1] = '\0';
-  for (size_t len = strlen(title); len > 1 && textWidth(c, &FreeSansBold18pt7b, title) > kTitleMaxW;) title[--len] = '\0';
-  drawText(c, &FreeSansBold18pt7b, kTitleX, baseline, title);
-
   char a[16], b[16], when[48];
-  fmtTime(a, sizeof a, e.startMin);
-  fmtTime(b, sizeof b, e.endMin);
-  if (next.inProgress) snprintf(when, sizeof when, "until %s", b);
-  else snprintf(when, sizeof when, "in %d min  %s", next.minutesUntil, a);
-  drawTextRight(c, &FreeSansBold12pt7b, kW - 16, baseline, when);
+  if (next.index >= 0) {
+    const DayEvent &e = v.events[next.index];
+    fmtTime(a, sizeof a, e.startMin);
+    fmtTime(b, sizeof b, e.endMin);
+    if (next.inProgress) snprintf(when, sizeof when, "until %s", b);
+    else snprintf(when, sizeof when, "in %d min  %s", next.minutesUntil, a);
+    drawNamedMeeting(c, next.inProgress ? "NOW" : "NEXT", e.title, when);
+  } else if (v.upcoming.valid) {
+    fmtTime(a, sizeof a, v.upcoming.startMin);
+    if (v.upcoming.daysAhead == 1) snprintf(when, sizeof when, "Tomorrow  %s", a);
+    else snprintf(when, sizeof when, "%s  %s", kDays[v.upcoming.wday % 7], a);
+    drawNamedMeeting(c, "NEXT", v.upcoming.title, when);
+  }
 }
 
 void drawDayBar(Canvas &c, const TimelineView &v, bool live) {

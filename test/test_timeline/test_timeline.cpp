@@ -96,13 +96,62 @@ void test_overlap_and_zero_length_do_not_crash() {
   TEST_ASSERT_EQUAL(1, c.getPixel(kTlX + minuteToX(675, kWindow, kTlW), barMidY()));
 }
 
-void test_next_line_has_text_with_and_without_meetings() {
+static int nextBandInk(Canvas &c) { return inkIn(c, 0, kNextY, kW, kNextY + kNextH); }
+
+static UpcomingMeeting upcoming(const char *title, uint8_t daysAhead, uint8_t wday, uint16_t startMin) {
+  UpcomingMeeting u{};
+  u.valid = true;
+  strncpy(u.title, title, 31);
+  u.daysAhead = daysAhead;
+  u.wday = wday;
+  u.startMin = startMin;
+  return u;
+}
+
+void test_next_line_names_the_next_meeting_today() {
   const DayEvent e[] = {ev("Design sync", 900, 930)};
-  Canvas withE(kW, kH), without(kW, kH);
-  renderTimeline(withE, view(e, 1, 14, 41));
-  renderTimeline(without, view(nullptr, 0, 14, 41));
-  TEST_ASSERT_GREATER_THAN(200, inkIn(withE, 0, kNextY, kW, kNextY + kNextH));
-  TEST_ASSERT_GREATER_THAN(100, inkIn(without, 0, kNextY, kW, kNextY + kNextH));
+  Canvas c(kW, kH);
+  renderTimeline(c, view(e, 1, 14, 41));
+  TEST_ASSERT_GREATER_THAN(200, nextBandInk(c));
+}
+
+void test_next_line_names_a_later_day_when_nothing_is_left_today() {
+  const DayEvent e[] = {ev("Done", 540, 600)};  // over by 14:41
+  TimelineView v = view(e, 1, 14, 41);
+  Canvas without(kW, kH), tomorrow(kW, kH), later(kW, kH);
+  renderTimeline(without, v);
+  v.upcoming = upcoming("Sprint review", 1, 2, 840);
+  renderTimeline(tomorrow, v);
+  v.upcoming = upcoming("Sprint review", 4, 2, 840);
+  renderTimeline(later, v);
+  TEST_ASSERT_EQUAL(0, nextBandInk(without));            // no meeting at all: no text
+  TEST_ASSERT_GREATER_THAN(200, nextBandInk(tomorrow));  // names tomorrow's meeting
+  TEST_ASSERT_GREATER_THAN(200, nextBandInk(later));     // and one further out, labelled by weekday
+  TEST_ASSERT_NOT_EQUAL(nextBandInk(tomorrow), nextBandInk(later));  // "Tomorrow" vs a weekday name
+}
+
+void test_a_meeting_left_today_wins_over_a_later_day() {
+  const DayEvent e[] = {ev("Today's", 900, 930)};
+  TimelineView v = view(e, 1, 14, 41);
+  Canvas plain(kW, kH), withUpcoming(kW, kH);
+  renderTimeline(plain, v);
+  v.upcoming = upcoming("Some other day", 1, 2, 540);
+  renderTimeline(withUpcoming, v);
+  TEST_ASSERT_EQUAL(nextBandInk(plain), nextBandInk(withUpcoming));
+}
+
+void test_no_placeholder_text_without_meetings() {
+  Canvas live(kW, kH), otherDay(kW, kH), noClock(kW, kH);
+  TimelineView v = view(nullptr, 0, 14, 41);
+  renderTimeline(live, v);
+  v.dayOffset = 1;
+  renderTimeline(otherDay, v);
+  v.dayOffset = 0;
+  v.timeValid = false;
+  renderTimeline(noClock, v);
+  TEST_ASSERT_EQUAL(0, nextBandInk(live));
+  TEST_ASSERT_EQUAL(0, nextBandInk(otherDay));
+  TEST_ASSERT_EQUAL(0, nextBandInk(noClock));
 }
 
 void test_stale_marker() {
@@ -132,7 +181,10 @@ int main() {
   RUN_TEST(test_now_marker_present_only_today);
   RUN_TEST(test_nothing_drawn_outside_bar);
   RUN_TEST(test_overlap_and_zero_length_do_not_crash);
-  RUN_TEST(test_next_line_has_text_with_and_without_meetings);
+  RUN_TEST(test_next_line_names_the_next_meeting_today);
+  RUN_TEST(test_next_line_names_a_later_day_when_nothing_is_left_today);
+  RUN_TEST(test_a_meeting_left_today_wins_over_a_later_day);
+  RUN_TEST(test_no_placeholder_text_without_meetings);
   RUN_TEST(test_stale_marker);
   RUN_TEST(test_invalid_time_has_no_marker_or_countdown_and_does_not_crash);
   return UNITY_END();
