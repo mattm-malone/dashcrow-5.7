@@ -160,6 +160,45 @@ void test_standup_never_fires_without_valid_time() {
   TEST_ASSERT_FALSE(a.overlayActive());
 }
 
+static void toTimelinePage(App &a) { a.onInput(press(Button::Menu), 0, mk(1, 9, 0)); }
+
+void test_timeline_turn_changes_day_offset() {
+  App a;
+  toTimelinePage(a);
+  TEST_ASSERT_EQUAL(0, a.dayOffset());
+  a.onInput(turn(1), 1000, mk(1, 9, 0));
+  TEST_ASSERT_EQUAL(1, a.dayOffset());
+  a.onInput(turn(-1), 2000, mk(1, 9, 0));
+  a.onInput(turn(-1), 3000, mk(1, 9, 0));
+  TEST_ASSERT_EQUAL(-1, a.dayOffset());
+}
+
+void test_timeline_fast_turns_still_step_one_day() {
+  App a;
+  toTimelinePage(a);
+  a.onInput(turn(1), 1000, mk(1, 9, 0));
+  a.onInput(turn(1), 1050, mk(1, 9, 0));  // within the acceleration window
+  TEST_ASSERT_EQUAL(2, a.dayOffset());
+}
+
+void test_timeline_click_resets_offset() {
+  App a;
+  toTimelinePage(a);
+  a.onInput(turn(1), 1000, mk(1, 9, 0));
+  a.onInput(turn(1), 5000, mk(1, 9, 0));
+  a.onInput(press(Button::Click), 6000, mk(1, 9, 0));
+  TEST_ASSERT_EQUAL(0, a.dayOffset());
+}
+
+void test_offset_clamped_to_week() {
+  App a;
+  toTimelinePage(a);
+  for (int i = 0; i < 20; i++) a.onInput(turn(1), 1000u + i * 1000u, mk(1, 9, 0));
+  TEST_ASSERT_EQUAL(7, a.dayOffset());
+  for (int i = 0; i < 40; i++) a.onInput(turn(-1), 100000u + i * 1000u, mk(1, 9, 0));
+  TEST_ASSERT_EQUAL(-7, a.dayOffset());
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_boots_on_clock);
@@ -177,5 +216,9 @@ int main() {
   RUN_TEST(test_exit_cancels_timer);
   RUN_TEST(test_timer_inputs_ignored_off_timer_page);
   RUN_TEST(test_standup_never_fires_without_valid_time);
+  RUN_TEST(test_timeline_turn_changes_day_offset);
+  RUN_TEST(test_timeline_fast_turns_still_step_one_day);
+  RUN_TEST(test_timeline_click_resets_offset);
+  RUN_TEST(test_offset_clamped_to_week);
   return UNITY_END();
 }

@@ -14,10 +14,12 @@ class App {
   Page page() const { return page_; }
   bool overlayActive() const { return overlay_; }
   const TimerModel &timer() const { return timer_; }
+  int dayOffset() const { return dayOffset_; }  // Timeline: days from today, -7..+7
 
  private:
   Page page_ = Page::Clock;
   bool overlay_ = false;
+  int dayOffset_ = 0;
   TimerModel timer_;
   StandupScheduler standup_;
   RotaryAccel accel_;

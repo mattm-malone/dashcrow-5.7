@@ -22,3 +22,11 @@
 #define STANDUP_START_HOUR 9
 #define STANDUP_END_HOUR 17
 #define STANDUP_WEEKDAY_MASK 0b0111110
+
+// Recurring meetings, typed in by hand (no work-calendar data is read). Times are minutes since
+// midnight; weekday mask bit 0 = Sunday (0b0111110 = Mon-Fri, 1 << 3 = Wednesday only).
+#include "Calendar.h"
+static const Meeting MEETINGS[] = {
+    {"Standup", 0b0111110, 9 * 60 + 30, 9 * 60 + 45},
+    {"Team sync", 1 << 3, 14 * 60, 15 * 60},
+};

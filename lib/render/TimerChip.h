@@ -7,4 +7,4 @@ constexpr int kChipY = 6;
 constexpr int kChipW = 140;
 constexpr int kChipH = 40;
 
-void drawTimerChip(Canvas &c, int minutesLeft);
+void drawTimerChip(Canvas &c, int minutesLeft, int x = kChipX);

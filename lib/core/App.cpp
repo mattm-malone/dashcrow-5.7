@@ -1,6 +1,8 @@
 #include "App.h"
 
 namespace {
+constexpr int kMaxDayOffset = 7;
+
 Page nextPage(Page p) {
   switch (p) {
     case Page::Timeline: return Page::Timer;
@@ -23,6 +25,18 @@ void App::onInput(const InputEvent &ev, uint32_t nowMs, const LocalTime &now) {
 
   if (ev.type == InputEvent::Type::Press && ev.button == Button::Menu) {
     page_ = nextPage(page_);
+    return;
+  }
+
+  if (page_ == Page::Timeline) {
+    // Day scrolling is one day per step regardless of how fast the rotary is pressed.
+    if (ev.type == InputEvent::Type::Turn) {
+      dayOffset_ += ev.dir;
+      if (dayOffset_ > kMaxDayOffset) dayOffset_ = kMaxDayOffset;
+      if (dayOffset_ < -kMaxDayOffset) dayOffset_ = -kMaxDayOffset;
+    } else if (ev.button == Button::Click) {
+      dayOffset_ = 0;
+    }
     return;
   }
 

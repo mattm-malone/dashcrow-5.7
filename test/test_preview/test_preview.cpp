@@ -5,7 +5,9 @@
 #include <filesystem>
 #include <fstream>
 #include "ClockPage.h"
+#include "TimelinePage.h"
 #include "TimerPage.h"
+#include <string.h>
 
 void setUp() {}
 void tearDown() {}
@@ -57,9 +59,37 @@ void test_preview_timer_pages() {
   TEST_ASSERT_TRUE(writePbm("timer_done", c));
 }
 
+static DayEvent ev(const char *t, int a, int b) {
+  DayEvent e{};
+  strncpy(e.title, t, 31);
+  e.startMin = a;
+  e.endMin = b;
+  return e;
+}
+
+void test_preview_timeline() {
+  const DayEvent e[] = {ev("Standup", 540, 555), ev("Design review", 600, 660), ev("1:1", 780, 810),
+                        ev("Design sync", 900, 930), ev("Retro", 960, 1020)};
+  TimelineView v{};
+  v.timeValid = true;
+  v.hour = 14;
+  v.minute = 41;
+  v.wday = 4;
+  v.mday = 30;
+  v.month = 10;
+  v.events = e;
+  v.n = 5;
+  v.window = {480, 1140};
+  v.sun = sunTimes(303, 40.7, -74.0, -4.0);
+  Canvas c(kW, kH);
+  renderTimeline(c, v);
+  TEST_ASSERT_TRUE(writePbm("timeline", c));
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_preview_clock);
   RUN_TEST(test_preview_timer_pages);
+  RUN_TEST(test_preview_timeline);
   return UNITY_END();
 }

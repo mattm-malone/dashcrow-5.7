@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include "App.h"
+#include "Calendar.h"
 #include "Canvas.h"
+#include "Daylight.h"
 #include "ClockPage.h"
 #include "Inputs.h"
 #include "MakeTimerView.h"
@@ -9,7 +11,9 @@
 #include "RefreshPolicy.h"
 #include "StandupOverlay.h"
 #include "TimerChip.h"
+#include "TimelinePage.h"
 #include "TimerPage.h"
+#include <time.h>
 #include "Text.h"
 #include "config.h"
 
@@ -49,9 +53,41 @@ static bool timerActive() {
   return s == TimerModel::State::Running || s == TimerModel::State::Paused;
 }
 
-static void renderPlaceholder(const char *name) {
-  canvas.fillScreen(0);
-  drawText(canvas, nullptr, 20, 100, name, 4);
+struct DayInfo {
+  uint8_t wday, mday, month;
+  int yday;       // 0-based day of year
+  double tzHours;  // local UTC offset on that day, DST included
+};
+
+// Calendar facts for today + offset days, from the system clock (valid once NTP has synced).
+static DayInfo dayInfo(int offset) {
+  const time_t t = time(nullptr) + time_t(offset) * 86400;
+  tm lt, gt;
+  localtime_r(&t, &lt);
+  gmtime_r(&t, &gt);
+  int diff = (lt.tm_hour * 60 + lt.tm_min) - (gt.tm_hour * 60 + gt.tm_min);
+  if (diff > 720) diff -= 1440;
+  if (diff < -720) diff += 1440;
+  return {uint8_t(lt.tm_wday), uint8_t(lt.tm_mday), uint8_t(lt.tm_mon + 1), lt.tm_yday, diff / 60.0};
+}
+
+static void renderTimelinePage(const LocalTime &t) {
+  static DayEvent events[16];
+  const DayInfo d = dayInfo(app.dayOffset());
+  TimelineView v{};
+  v.timeValid = t.valid;
+  v.hour = t.hour;
+  v.minute = t.minute;
+  v.wday = d.wday;
+  v.mday = d.mday;
+  v.month = d.month;
+  v.events = events;
+  v.n = eventsForDay(MEETINGS, sizeof MEETINGS / sizeof MEETINGS[0], d.wday, events, 16);
+  v.window = {DAY_START_MIN, DAY_END_MIN};
+  v.sun = sunTimes(d.yday + 1, LATITUDE, LONGITUDE, d.tzHours);
+  v.dayOffset = app.dayOffset();
+  v.feedStale = false;
+  renderTimeline(canvas, v);
 }
 
 static void render(const LocalTime &t) {
@@ -67,8 +103,9 @@ static void render(const LocalTime &t) {
       renderTimer(canvas, makeTimerView(app.timer(), t));
       return;  // the timer page shows its own state; no chip
     case Page::Timeline:
-      renderPlaceholder("TIMELINE");
-      break;
+      renderTimelinePage(t);
+      if (timerActive()) drawTimerChip(canvas, app.timer().minutesLeft(), 250);  // clear of the header time
+      return;
   }
   if (timerActive()) drawTimerChip(canvas, app.timer().minutesLeft());
 }
@@ -80,7 +117,8 @@ static uint32_t contentKey(const LocalTime &t) {
   const uint32_t chip = timerActive() ? 1u + uint32_t(tm.minutesLeft()) : 0u;
   switch (app.page()) {
     case Page::Clock: return (t.valid ? 1u + t.hour * 60u + t.minute : 0u) | (chip << 16);
-    case Page::Timeline: return chip;
+    case Page::Timeline:
+      return (t.valid ? 1u + t.hour * 60u + t.minute : 0u) | (uint32_t(app.dayOffset() + 8) << 12) | (chip << 16);
     case Page::Timer: {
       const uint32_t mode = uint32_t(tm.state()) + 1u;
       if (tm.state() == TimerModel::State::Setting) return (mode << 28) | uint32_t(tm.setMinutes());
