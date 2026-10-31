@@ -23,7 +23,7 @@ volatile uint8_t gPending[kKeys];
 volatile uint32_t gLastEdgeMs[kKeys];
 
 void IRAM_ATTR onEdge(void *arg) {
-  const int i = int(intptr_t(arg));
+  const int i = int(intptr_t(arg)) - 1;  // arg is index + 1: the core treats a null arg as "no argument"
   const uint32_t now = millis();
   const bool pressed = digitalRead(kDefs[i].pin) == LOW;
   // Count a press only on a falling edge that follows a quiet period; release bounce and
@@ -37,7 +37,7 @@ void IRAM_ATTR onEdge(void *arg) {
 void Inputs::begin() {
   for (int i = 0; i < kKeys; i++) {
     pinMode(kDefs[i].pin, INPUT_PULLUP);
-    attachInterruptArg(kDefs[i].pin, onEdge, reinterpret_cast<void *>(intptr_t(i)), CHANGE);
+    attachInterruptArg(kDefs[i].pin, onEdge, reinterpret_cast<void *>(intptr_t(i + 1)), CHANGE);
   }
 }
 

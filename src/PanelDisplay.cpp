@@ -32,7 +32,6 @@ void PanelDisplay::show(const Canvas &canvas, RefreshKind kind) {
       EPD_FastMode1Init();
       EPD_Display_Clear();
       EPD_Update();
-      EPD_Clear_R26A6H();
     }
     EPD_GPIOInit();
     EPD_FastMode1Init();
